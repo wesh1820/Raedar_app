@@ -12,7 +12,7 @@ const CategoryEventScreen = ({ route }) => {
     return (
       <TouchableOpacity
         style={styles.eventCard}
-        onPress={() => navigation.navigate('EventDetail', { event: item })} // ✅ Ga naar EventDetailScreen
+        onPress={() => navigation.navigate('EventDetailScreen', { event: item })} // ✅ Go to EventDetailScreen
       >
         {imageUri && (
           <ImageBackground
@@ -34,7 +34,7 @@ const CategoryEventScreen = ({ route }) => {
       <Text style={styles.header}>{category}</Text>
       <FlatList
         data={events}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => `${item._id}-${item.title}`} // Ensure unique key
         numColumns={2}
         columnWrapperStyle={{ justifyContent: 'space-between' }}
         renderItem={renderEvent}
@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     padding: 15,
     borderRadius: 15,
-
   },
   eventCard: {
     flexDirection: 'row',

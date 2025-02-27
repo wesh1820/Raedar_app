@@ -1,48 +1,86 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ParkingDetailScreen = ({ route, navigation }) => {
   const { event, parking } = route.params;
   const [ticket, setTicket] = useState(null);
+  const [userToken, setUserToken] = useState(null); // State to store userToken
 
-  // Function to create and add a ticket to the MongoDB database
-  const createTicket = async () => {
-    console.log("Create Ticket Button Pressed");
-  
-    const newTicket = {
-      type: ` ${parking.location}`, // Include parking location in the ticket name
-      price: parking.price,
-      availability: 1, // Assume 1 ticket available
+  // Use useEffect to get the token when the screen is mounted
+  useEffect(() => {
+    const getUserToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken"); // Retrieve token
+        if (token) {
+          setUserToken(token); // Set the token in state
+        } else {
+          Alert.alert("Error", "You are not logged in.");
+          navigation.navigate("LoginScreen"); // Optionally, navigate to login if no token found
+        }
+      } catch (error) {
+        console.error("Error retrieving user token:", error);
+      }
     };
-  
-    console.log('Ticket data to be sent:', newTicket);
-  
+
+    getUserToken();
+  }, []);
+
+  // Function to create a ticket
+  const createTicket = async () => {
+    if (!userToken) {
+      Alert.alert("Error", "You must be logged in to create a ticket.");
+      return;
+    }
+
+    const newTicket = {
+      type: `${parking.location}`,
+      price: parking.price,
+      availability: 1,
+    };
+
+    console.log("Ticket data to be sent:", newTicket);
+
     try {
-      const response = await axios.post('https://raedar-backend.onrender.com/api/tickets', newTicket);
-  
-      console.log('Response from server:', response.data);
-      if (response.status === 200) {
+      const response = await axios.post(
+        "https://raedar-backend.onrender.com/api/tickets",
+        newTicket,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+
+      console.log("Response from server:", response.data);
+
+      if (response.status >= 200 && response.status < 300) {
         setTicket(response.data.ticket);
         Alert.alert(
-          'Ticket Created',
+          "Ticket Created",
           `You have successfully created a ticket for ${parking.location} at the price of ${parking.price}.`
         );
-  
-        // Navigate to the MainTab and then to TicketScreen
-        navigation.navigate('Main', {
-          screen: 'Tickets', // Navigate to the 'Tickets' tab in MainTabs
-          params: { newTicket: response.data.ticket }, // Pass the new ticket data as params
-        });
+
+        // Voeg een timeout toe om zeker te zijn dat het alert eerst verschijnt
+        setTimeout(() => {
+          navigation.navigate("Main", { screen: "Tickets" });
+        }, 500);
       } else {
-        Alert.alert('Error', 'Failed to create ticket. Try again.');
+        Alert.alert("Error", "Failed to create ticket. Try again.");
       }
     } catch (error) {
-      console.error('Error creating ticket:', error);
+      console.error("Error creating ticket:", error);
+
       if (error.response) {
-        console.log('Error response:', error.response);
+        console.log("Error response:", error.response.data);
+        Alert.alert(
+          "API Fout",
+          error.response.data.message || "Er ging iets mis."
+        );
+      } else {
+        Alert.alert("Netwerkfout", "Kan geen verbinding maken met de server.");
       }
-      Alert.alert('Error', 'There was an error creating the ticket. Please try again.');
     }
   };
 
@@ -74,15 +112,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginVertical: 20,
-    backgroundColor: '#001D3D',
-    color: '#fff',
+    backgroundColor: "#001D3D",
+    color: "#fff",
     padding: 15,
     borderRadius: 15,
   },
@@ -91,22 +129,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   button: {
-    backgroundColor: '#EB6534',
+    backgroundColor: "#EB6534",
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 15,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   ticketInfo: {
     marginTop: 20,
     padding: 10,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 5,
   },
 });

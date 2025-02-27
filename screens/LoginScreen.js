@@ -1,31 +1,62 @@
-// screens/LoginScreen.js
-import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet, Image } from 'react-native';
-import { auth } from '../firebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import React, { useState } from "react";
+import {
+  View,
+  TextInput,
+  Button,
+  Text,
+  StyleSheet,
+  Image,
+  Alert,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export function LoginScreen({ navigation, setIsLoggedIn }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Vul zowel je e-mail als wachtwoord in.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Main');
+      const response = await fetch(
+        "https://raedar-backend.onrender.com/api/users",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, action: "login" }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login mislukt.");
+      }
+
+      // Token opslaan voor toekomstige API-aanvragen
+      await AsyncStorage.setItem("userToken", data.token);
+
+      Alert.alert("Succes", "Je bent ingelogd!");
+      setIsLoggedIn(true);
+      navigation.navigate("Main"); // Navigate to Main
     } catch (error) {
-      console.error(error);
-      alert('Login Failed');
+      Alert.alert("Login mislukt", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Image */}
       <Image
-        source={require('../assets/RaedarLogo.png')} // Replace with your image path
+        source={require("../assets/RaedarLogo.png")}
         style={styles.image}
       />
-
       <Text style={styles.header}>Login</Text>
 
       <TextInput
@@ -33,45 +64,54 @@ export function LoginScreen({ navigation }) {
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="Wachtwoord"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Login" onPress={handleLogin} />
+      <Button
+        title={loading ? "Even wachten..." : "Login"}
+        onPress={handleLogin}
+        disabled={loading}
+      />
 
-      <Text style={styles.signUpText} onPress={() => navigation.navigate('SignUpScreen')}>
-        Don't have an account? Sign up
+      <Text
+        style={styles.signUpText}
+        onPress={() => navigation.navigate("SignUp")} // Navigate to the SignUp screen
+      >
+        Nog geen account? Registreer hier.
       </Text>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   image: {
-    width: 300, // Adjust the width as per your design
-    height: 66, // Adjust the height as per your design
-    marginBottom: 60, // Space between the image and the login form
+    width: 300,
+    height: 66,
+    marginBottom: 60,
   },
   header: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
   },
   input: {
-    width: '100%',
+    width: "100%",
     height: 50,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 5,
     paddingLeft: 10,
@@ -79,7 +119,7 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     marginTop: 15,
-    color: '#007BFF',
+    color: "#007BFF",
   },
 });
 

@@ -1,14 +1,22 @@
-import React from 'react';
-import { View, Text, ImageBackground, StyleSheet, TouchableOpacity } from 'react-native';
+import React from "react";
+import {
+  View,
+  Text,
+  ImageBackground,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 
 const EventDetailScreen = ({ route, navigation }) => {
   const { event } = route.params; // Access the event data passed from EventScreen
 
-  const imageUri = event.imageName ? `https://raedar-backend.onrender.com${event.imageName}` : null;
+  const imageUri = event.imageName
+    ? `https://raedar-backend.onrender.com${event.imageName}`
+    : null;
 
   const handleParkingPress = (parking) => {
     // Navigate to the ParkingDetailScreen with the parking data
-    navigation.navigate('ParkingDetail', { parking });
+    navigation.navigate("ParkingDetail", { parking });
   };
 
   return (
@@ -20,16 +28,22 @@ const EventDetailScreen = ({ route, navigation }) => {
           imageStyle={styles.eventImageStyle}
         >
           <View style={styles.overlay}>
-            <Text style={styles.eventTitle}>{event.title || 'No Title'}</Text>
+            <Text style={styles.eventTitle}>{event.title || "No Title"}</Text>
           </View>
         </ImageBackground>
       )}
-      
+
       {/* Event details */}
       <View style={styles.textContainer}>
-        <Text style={styles.eventDescription}>{event.description || 'No Description'}</Text>
-        <Text style={styles.eventDate}>📅 {event.date || 'No Date Available'}</Text>
-        <Text style={styles.eventLocation}>📍 {event.location || 'No Location Available'}</Text>
+        <Text style={styles.eventDescription}>
+          {event.description || "No Description"}
+        </Text>
+        <Text style={styles.eventDate}>
+          📅 {event.date || "No Date Available"}
+        </Text>
+        <Text style={styles.eventLocation}>
+          📍 {event.location || "No Location Available"}
+        </Text>
 
         {/* Parkings List */}
         <View style={styles.parkingsContainer}>
@@ -56,51 +70,51 @@ const EventDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   detailContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   eventImageDetail: {
-    width: '100%',
+    width: "100%",
     height: 300,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    justifyContent: "flex-end",
+    alignItems: "center",
     borderRadius: 1,
   },
   eventImageStyle: {
     borderRadius: 8,
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    width: '100%',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    width: "100%",
   },
   eventTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
   },
   textContainer: {
     padding: 20,
   },
   eventDescription: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     marginBottom: 10,
   },
   eventDate: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#555',
+    fontWeight: "bold",
+    color: "#555",
     marginBottom: 5,
   },
   eventLocation: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#555',
+    fontWeight: "bold",
+    color: "#555",
     marginBottom: 15,
   },
   parkingsContainer: {
@@ -108,18 +122,18 @@ const styles = StyleSheet.create({
   },
   parkingsTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
   },
   parkingItem: {
     padding: 10,
-    backgroundColor: '#EB6534',
+    backgroundColor: "#EB6534",
     borderRadius: 15,
     marginBottom: 8,
   },
   parkingText: {
     fontSize: 16,
-    color: '#ffffff',
+    color: "#ffffff",
   },
 });
 

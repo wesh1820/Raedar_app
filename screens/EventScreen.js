@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, ImageBackground, TouchableOpacity } from 'react-native';
-import axios from 'axios';
-import { useNavigation } from '@react-navigation/native';
-import { getAuth } from 'firebase/auth';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+} from "react-native";
+import axios from "axios";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // for handling token
 
 export function EventScreen() {
   const [categories, setCategories] = useState([]);
@@ -12,26 +19,29 @@ export function EventScreen() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const auth = getAuth();
-        const user = auth.currentUser;
+        // Get the token from AsyncStorage
+        const token = await AsyncStorage.getItem("userToken");
 
-        if (!user) {
-          console.error('❌ User not authenticated');
+        if (!token) {
+          console.error("❌ User not authenticated");
           return;
         }
 
-        const idToken = await user.getIdToken();
+        // Make the request to fetch events with the token
+        const response = await axios.get(
+          "https://raedar-backend.onrender.com/api/events", // Replace with your correct API endpoint
+          {
+            headers: { Authorization: `Bearer ${token}` }, // Send token in header
+          }
+        );
 
-        const response = await axios.get('https://raedar-backend.onrender.com/api/events', {
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-
+        // Sort categories and update state
         const sortedCategories = response.data.sort((a, b) =>
           a.category.localeCompare(b.category)
         );
         setCategories(sortedCategories);
       } catch (error) {
-        console.error('❌ Error fetching events:', error);
+        console.error("❌ Error fetching events:", error);
       } finally {
         setLoading(false);
       }
@@ -45,14 +55,22 @@ export function EventScreen() {
   }
 
   const openCategory = (category) => {
-    navigation.navigate('CategoryEvent', { category: category.category, events: category.events });
+    navigation.navigate("CategoryEvent", {
+      category: category.category,
+      events: category.events,
+    });
   };
 
   const renderCategory = ({ item }) => {
-    const imageUri = item.categoryImage ? `https://raedar-backend.onrender.com${item.categoryImage}` : null;
-  
+    const imageUri = item.categoryImage
+      ? `https://raedar-backend.onrender.com${item.categoryImage}`
+      : "https://via.placeholder.com/150"; // Fallback image if categoryImage is not available
+
     return (
-      <TouchableOpacity onPress={() => openCategory(item)} style={styles.categoryCard}>
+      <TouchableOpacity
+        onPress={() => openCategory(item)}
+        style={styles.categoryCard}
+      >
         <ImageBackground
           source={{ uri: imageUri }}
           style={styles.categoryButton}
@@ -65,12 +83,11 @@ export function EventScreen() {
       </TouchableOpacity>
     );
   };
-  
 
   return (
     <FlatList
       data={categories}
-      keyExtractor={(item) => item._id}
+      keyExtractor={(item) => item._id} // Make sure each category has a unique _id
       renderItem={renderCategory}
       ListEmptyComponent={<Text>No events found</Text>}
     />
@@ -82,33 +99,33 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   categoryButton: {
-    width: '90%',
-    alignSelf: 'center',
+    width: "90%",
+    alignSelf: "center",
     padding: 15,
     borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 10,
     height: 150,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   categoryImage: {
     borderRadius: 25,
-    width: '110%',
+    width: "110%",
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   categoryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
 });
 
