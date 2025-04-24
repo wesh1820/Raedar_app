@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LogBox } from "react-native";
 
+// Import screens
 import HomeScreen from "./screens/HomeScreen";
 import EventScreen from "./screens/EventScreen";
 import TicketScreen from "./screens/TicketScreen";
@@ -16,13 +17,14 @@ import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
 
+// Import icons
 import {
   MaterialIcons,
   Ionicons,
   FontAwesome,
 } from "react-native-vector-icons";
 
-// Ignore specific warnings (optional)
+// Ignore specific warnings
 LogBox.ignoreLogs(["Warning: ..."]);
 
 const Stack = createStackNavigator();
@@ -31,11 +33,10 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check if user is logged in
   useEffect(() => {
     const checkLoginStatus = async () => {
       const token = await AsyncStorage.getItem("userToken");
-      setIsLoggedIn(!!token); // Set to true if token exists
+      setIsLoggedIn(!!token);
     };
     checkLoginStatus();
   }, []);
@@ -51,72 +52,85 @@ export default function App() {
   );
 }
 
-// ✅ AuthStack: Login + Signup
+// 🔐 Auth stack: Login + Signup
 function AuthStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="Login"
-        options={{ headerShown: false }} // Hide header (no back button)
-      >
+      <Stack.Screen name="Login" options={{ headerShown: false }}>
         {(props) => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
-      <Stack.Screen
-        name="SignUp"
-        options={{ headerShown: false }} // Hide header (no back button)
-      >
+      <Stack.Screen name="SignUp" options={{ headerShown: false }}>
         {(props) => <SignUpScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
     </Stack.Navigator>
   );
 }
 
-// ✅ MainStack: The rest of the app
+// 🔄 Main stack (post-login)
 function MainStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="Back"
-        component={MainTabs}
-        options={{ headerShown: false }} // Hide header for main tab screen
-      />
+      {/* Verwijder de back button voor de schermen */}
+      <Stack.Screen name="Main" options={{ headerShown: false }}>
+        {(props) => <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} />}
+      </Stack.Screen>
       <Stack.Screen
         name="EventDetailScreen"
         component={EventDetailScreen}
-        options={{ headerShown: true }} // Show back button
+        options={{
+          headerShown: true,
+          title: "",
+          headerStyle: { backgroundColor: "" },
+          headerTintColor: "#000000",
+          headerBackTitleVisible: false, // Verwijder de terugknop
+        }}
       />
       <Stack.Screen
         name="CategoryEvent"
         component={CategoryEventScreen}
-        options={{ headerShown: true }} // Show back button
+        options={{
+          headerShown: true,
+          title: "",
+          headerStyle: { backgroundColor: "" },
+          headerTintColor: "#000000",
+          headerBackTitleVisible: false, // Verwijder de terugknop
+        }}
       />
       <Stack.Screen
         name="ParkingDetail"
         component={ParkingDetailScreen}
-        options={{ headerShown: true }} // Show back button
+        options={{
+          headerShown: true,
+          title: "",
+          headerStyle: { backgroundColor: "" },
+          headerTintColor: "#000000",
+          headerBackTitleVisible: false, // Verwijder de terugknop
+        }}
       />
       <Stack.Screen
         name="TicketDetail"
         component={TicketDetailScreen}
-        options={{ headerShown: true }} // Show back button
-      />
-      <Stack.Screen
-        name="MoreScreen"
-        component={MoreScreen}
-        options={{ headerShown: true }} // Show back button
+        options={{
+          headerShown: true,
+          title: "",
+          headerStyle: { backgroundColor: "" },
+          headerTintColor: "#000000",
+          headerBackTitleVisible: false, // Verwijder de terugknop
+        }}
       />
     </Stack.Navigator>
   );
 }
 
-// ✅ TabNavigator
-function MainTabs() {
+// 🧭 Bottom tabs
+function MainTabs({ setIsLoggedIn }) {
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: { backgroundColor: "#fff" },
         tabBarActiveTintColor: "#001D3D",
         tabBarInactiveTintColor: "#888",
+        headerShown: false, // Geen header op de tabs
       }}
     >
       <Tab.Screen
@@ -148,13 +162,14 @@ function MainTabs() {
       />
       <Tab.Screen
         name="More"
-        component={MoreScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="ellipsis-horizontal" size={size} color={color} />
           ),
         }}
-      />
+      >
+        {(props) => <MoreScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }

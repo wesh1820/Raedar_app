@@ -2,24 +2,37 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
-  ImageBackground,
+  Image,
   TouchableOpacity,
+  ImageBackground, // <-- deze toevoegen
+  ActivityIndicator,
+  ScrollView,
+  Dimensions,
 } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // for handling token
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const COLUMN_GAP = 19;
+const TILE_WIDTH = (SCREEN_WIDTH - COLUMN_GAP * 3) / 2;
 
 export function EventScreen() {
-  const [categories, setCategories] = useState([]);
+  const [leftColumn, setLeftColumn] = useState([]);
+  const [rightColumn, setRightColumn] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    popular: false,
+    distance: false,
+    date: false,
+    favorite: false,
+  });
   const navigation = useNavigation();
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        // Get the token from AsyncStorage
         const token = await AsyncStorage.getItem("userToken");
 
         if (!token) {
@@ -27,19 +40,62 @@ export function EventScreen() {
           return;
         }
 
-        // Make the request to fetch events with the token
         const response = await axios.get(
-          "https://raedar-backend.onrender.com/api/events", // Replace with your correct API endpoint
+          "https://raedar-backend.onrender.com/api/events",
           {
-            headers: { Authorization: `Bearer ${token}` }, // Send token in header
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
 
-        // Sort categories and update state
-        const sortedCategories = response.data.sort((a, b) =>
+        let sorted = response.data.sort((a, b) =>
           a.category.localeCompare(b.category)
         );
-        setCategories(sortedCategories);
+
+        // Filter de evenementen op basis van de gekozen filters
+        if (filters.popular) {
+          sorted = sorted.filter((event) => event.populair === 1);
+        }
+
+        if (filters.favorite) {
+          sorted = sorted.filter((event) => event.favorite === 1); // Filter voor favoriete evenementen
+        }
+
+        if (filters.date) {
+          sorted = sorted.filter((event) => new Date(event.date) >= new Date()); // Filter voor evenementen vanaf de huidige datum
+        }
+
+        if (filters.distance) {
+          // Stel een logica voor afstand in, bijvoorbeeld evenementen binnen een bepaalde straal
+          sorted = sorted.filter((event) => event.distance <= 50); // Stel hier je afstandslogica in
+        }
+
+        // Verdeel de items handmatig over 2 kolommen met hoogte-alternatie
+        const left = [];
+        const right = [];
+
+        sorted.forEach((item, index) => {
+          const isEvenRow = Math.floor(index / 2) % 2 === 0;
+          const isLeft = index % 2 === 0;
+
+          const heightFactor = isEvenRow
+            ? isLeft
+              ? 18
+              : 22
+            : isLeft
+            ? 22
+            : 18;
+
+          const card = {
+            ...item,
+            height: heightFactor * 10,
+          };
+
+          if (isLeft) left.push(card);
+          else right.push(card);
+        });
+
+        setLeftColumn(left);
+        setRightColumn(right);
       } catch (error) {
         console.error("❌ Error fetching events:", error);
       } finally {
@@ -48,11 +104,7 @@ export function EventScreen() {
     };
 
     fetchEvents();
-  }, []);
-
-  if (loading) {
-    return <Text>Loading events...</Text>;
-  }
+  }, [filters]); // We triggeren een herlaad wanneer de filters veranderen
 
   const openCategory = (category) => {
     navigation.navigate("CategoryEvent", {
@@ -61,71 +113,160 @@ export function EventScreen() {
     });
   };
 
-  const renderCategory = ({ item }) => {
-    const imageUri = item.categoryImage
-      ? `https://raedar-backend.onrender.com${item.categoryImage}`
-      : "https://via.placeholder.com/150"; // Fallback image if categoryImage is not available
+  const renderColumn = (data) => {
+    return data.map((item) => {
+      const imageUri = item.categoryImage
+        ? `https://raedar-backend.onrender.com${item.categoryImage}`
+        : "https://via.placeholder.com/150";
 
-    return (
-      <TouchableOpacity
-        onPress={() => openCategory(item)}
-        style={styles.categoryCard}
-      >
-        <ImageBackground
-          source={{ uri: imageUri }}
-          style={styles.categoryButton}
-          imageStyle={styles.categoryImage}
+      return (
+        <TouchableOpacity
+          key={item._id}
+          onPress={() => openCategory(item)}
+          style={[styles.categoryCard, { height: item.height }]}
         >
-          <View style={styles.overlay}>
-            <Text style={styles.categoryTitle}>{item.category}</Text>
-          </View>
-        </ImageBackground>
-      </TouchableOpacity>
-    );
+          <ImageBackground
+            source={{ uri: imageUri }}
+            style={styles.categoryButton}
+            imageStyle={styles.categoryImage}
+          >
+            <View style={styles.overlay}>
+              <Text style={styles.categoryTitle}>{item.category}</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
+      );
+    });
   };
 
+  const toggleFilter = (filter) => {
+    setFilters((prev) => ({
+      ...prev,
+      [filter]: !prev[filter],
+    }));
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text>Loading events...</Text>
+      </View>
+    );
+  }
+
   return (
-    <FlatList
-      data={categories}
-      keyExtractor={(item) => item._id} // Make sure each category has a unique _id
-      renderItem={renderCategory}
-      ListEmptyComponent={<Text>No events found</Text>}
-    />
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      {/* Add Image above the filters */}
+      <Image
+        source={require("../assets/festival.png")}
+        style={styles.festivalImage}
+      />
+
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          onPress={() => toggleFilter("popular")}
+          style={styles.filterButton}
+        >
+          <Text style={styles.filterText}>
+            {filters.popular ? "All" : "Popular"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => toggleFilter("favorite")}
+          style={styles.filterButton}
+        >
+          <Text style={styles.filterText}>
+            {filters.favorite ? "All" : "Favorites"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => toggleFilter("date")}
+          style={styles.filterButton}
+        >
+          <Text style={styles.filterText}>{filters.date ? "All" : "Date"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => toggleFilter("distance")}
+          style={styles.filterButton}
+        >
+          <Text style={styles.filterText}>
+            {filters.distance ? "All" : "Distance"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.columnsContainer}>
+        <View style={styles.column}>{renderColumn(leftColumn)}</View>
+        <View style={styles.column}>{renderColumn(rightColumn)}</View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    padding: COLUMN_GAP,
+  },
+  festivalImage: {
+    width: "112%",
+    height: 200, // Adjust the height as per your requirement
+    marginBottom: COLUMN_GAP,
+    marginTop: -20,
+    marginLeft: -19,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    marginBottom: COLUMN_GAP,
+  },
+  filterButton: {
+    backgroundColor: "#EB6534",
+    paddingVertical: 5,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+  },
+  filterText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  columnsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  column: {
+    width: TILE_WIDTH,
+    gap: COLUMN_GAP,
+  },
   categoryCard: {
-    marginBottom: 10,
+    width: TILE_WIDTH,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#ccc",
   },
   categoryButton: {
-    width: "90%",
-    alignSelf: "center",
-    padding: 15,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    height: 150,
-    overflow: "hidden",
+    flex: 1,
+    justifyContent: "flex-end",
   },
   categoryImage: {
-    borderRadius: 25,
-    width: "110%",
+    width: "100%",
+    height: "100%",
   },
   overlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingVertical: 10,
-    alignItems: "center",
+    backgroundColor: "rgba(61, 61, 61, 0.5)",
+    paddingVertical: 8,
+    alignItems: "left",
+    paddingHorizontal: 10,
   },
   categoryTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
