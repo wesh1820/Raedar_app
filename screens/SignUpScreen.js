@@ -35,7 +35,7 @@ export function SignUpScreen({ navigation }) {
 
         await AsyncStorage.setItem("userToken", data.token);
         Alert.alert("Succes", "Account aangemaakt!");
-        navigation.navigate("Main"); // Navigate to the main screen after successful sign up
+        navigation.navigate("Walkthrough"); // Navigate to the walktrough screen after successful sign up
       } catch (jsonError) {
         throw new Error("Ongeldige API-respons: " + text);
       }

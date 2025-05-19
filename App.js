@@ -16,6 +16,9 @@ import EventDetailScreen from "./screens/EventDetailScreen";
 import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
+import WalkthroughScreen from "./screens/WalkthroughScreen";
+
+
 
 // Import icons
 import {
@@ -62,6 +65,10 @@ function AuthStack({ setIsLoggedIn }) {
       <Stack.Screen name="SignUp" options={{ headerShown: false }}>
         {(props) => <SignUpScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
+      <Stack.Screen name="Walkthrough" options={{ headerShown: false }}>
+  {(props) => <WalkthroughScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+</Stack.Screen>
+
     </Stack.Navigator>
   );
 }
@@ -70,7 +77,7 @@ function AuthStack({ setIsLoggedIn }) {
 function MainStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
-      {/* Verwijder de back button voor de schermen */}
+  
       <Stack.Screen name="Main" options={{ headerShown: false }}>
         {(props) => <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
@@ -82,9 +89,10 @@ function MainStack({ setIsLoggedIn }) {
           title: "",
           headerStyle: { backgroundColor: "" },
           headerTintColor: "#000000",
-          headerBackTitleVisible: false, // Verwijder de terugknop
+          headerBackTitleVisible: false,
         }}
       />
+      
       <Stack.Screen
         name="CategoryEvent"
         component={CategoryEventScreen}
