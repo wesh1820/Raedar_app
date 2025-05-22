@@ -15,6 +15,34 @@ import axios from "axios";
 import { debounce } from "lodash";
 import Icon from "react-native-vector-icons/FontAwesome"; // <-- Voeg dit toe voor iconen
 
+const VehicleCard = ({ vehicle, selected, onPress }) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.vehicleCard,
+        selected ? styles.vehicleCardSelected : styles.vehicleCardDefault,
+      ]}
+    >
+      <View style={styles.vehicleCardHeader}>
+        <Icon name="car" size={18} color={selected ? "#fff" : "#001D3D"} />
+      </View>
+      <Text style={[styles.vehicleCardTitle, selected && { color: "#fff" }]}>
+        {vehicle.year} {vehicle.brand} {vehicle.model}
+      </Text>
+      <Text style={[styles.vehicleCardPlate, selected && { color: "#fff" }]}>
+        {vehicle.plate}
+      </Text>
+      {selected && (
+        <View style={styles.checkmark}>
+          <Icon name="check-square" size={18} color="#fff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+
 export function HomeScreen({ navigation }) {
   const [region, setRegion] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -27,10 +55,10 @@ export function HomeScreen({ navigation }) {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   const vehicles = [
-    { id: 1, name: "BMW serie 3" },
-    { id: 2, name: "Mercedes CLA" },
-    { id: 3, name: "Honda sniperdex" },
+    { id: 1, brand: "Audi", model: "Q3", year: 2021, plate: "B 1234 CD" },
+    { id: 2, brand: "BMW", model: "X2", year: 2021, plate: "B 5632 DM" },
   ];
+  
 
   const debouncedSearch = debounce((text) => {
     setSearchQuery(text);
@@ -155,6 +183,30 @@ export function HomeScreen({ navigation }) {
           ))}
       </MapView>
 
+      {/* 🔶 Orange parking tag */}
+<View style={styles.parkingTag}>
+  <Text style={styles.parkingTagText}>Parking Goovaerts →</Text>
+</View>
+
+{/* 🎯 Location button (right bottom corner) */}
+<TouchableOpacity style={styles.locateButton}>
+  <Icon name="crosshairs" size={18} color="white" />
+</TouchableOpacity>
+
+{/* 🔍 Search bar (bottom center) */}
+<View style={styles.searchBarWrapper}>
+  <View style={styles.searchBar}>
+    <Icon name="search" size={16} color="#001D3D" />
+    <TextInput
+      placeholder="Search for your destination"
+      placeholderTextColor="#999"
+      style={styles.searchInput}
+    />
+    <Icon name="microphone" size={16} color="#001D3D" />
+  </View>
+</View>
+
+
       {/* Filter modal */}
       {filterVisible && (
         <Modal visible={filterVisible} animationType="fade" transparent={true}>
@@ -260,34 +312,36 @@ export function HomeScreen({ navigation }) {
       {/* Vehicle selection modal */}
       {vehiclesModalVisible && (
         <Modal
-          visible={vehiclesModalVisible}
-          animationType="fade"
-          transparent={true}
-        >
-          <View style={styles.filterContainer}>
-            <View style={styles.filterBox}>
-              <Text style={styles.filterTitle}>Select a Vehicle</Text>
-              <FlatList
-                data={vehicles}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => handleVehicleSelect(item)}
-                    style={styles.suggestionItem}
-                  >
-                    <Text>{item.name}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-              <TouchableOpacity
-                onPress={() => setVehiclesModalVisible(false)} // Close modal
-                style={styles.closeFilterButton}
-              >
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+  visible={vehiclesModalVisible}
+  animationType="fade"
+  transparent={true}
+>
+  <View style={styles.filterContainer}>
+    <View style={[styles.filterBox, { height: 250 }]}>
+      <Text style={styles.filterTitle}>Select your vehicle</Text>
+      <FlatList
+        horizontal
+        data={vehicles}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ gap: 10 }}
+        renderItem={({ item }) => (
+          <VehicleCard
+            vehicle={item}
+            selected={selectedVehicle?.id === item.id}
+            onPress={() => handleVehicleSelect(item)}
+          />
+        )}
+      />
+      <TouchableOpacity
+        style={styles.addVehicleButton}
+        onPress={() => console.log("Add new vehicle")}
+      >
+        <Icon name="plus" size={20} color="#001D3D" />
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       )}
 
       {/* Selected vehicle display */}
@@ -429,6 +483,108 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
   },
+
+  parkingTag: {
+    position: "absolute",
+    top: 130,
+    alignSelf: "center",
+    backgroundColor: "#EB6534",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    zIndex: 10,
+  },
+  parkingTagText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  
+  locateButton: {
+    position: "absolute",
+    bottom: 160,
+    right: 20,
+    backgroundColor: "#001D3D",
+    padding: 12,
+    borderRadius: 100,
+    elevation: 5,
+  },
+  
+  searchBarWrapper: {
+    position: "absolute",
+    bottom: 90,
+    left: 20,
+    right: 20,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 10,
+    color: "#001D3D",
+  },
+
+  vehicleCard: {
+    width: 160,
+    height: 120,
+    borderRadius: 15,
+    padding: 12,
+    justifyContent: "center",
+    backgroundColor: "#F2F2F2",
+    position: "relative",
+  },
+  vehicleCardDefault: {
+    backgroundColor: "#F2F2F2",
+  },
+  vehicleCardSelected: {
+    backgroundColor: "#EB6534",
+  },
+  vehicleCardHeader: {
+    marginBottom: 6,
+  },
+  vehicleCardTitle: {
+    fontWeight: "bold",
+    fontSize: 15,
+    color: "#001D3D",
+  },
+  vehicleCardPlate: {
+    fontSize: 13,
+    color: "#888",
+  },
+  checkmark: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+  },
+  addVehicleButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#E6E6E6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    marginLeft: 10,
+  },
+  
+  
 });
 
 export default HomeScreen;
