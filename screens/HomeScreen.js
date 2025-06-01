@@ -42,10 +42,7 @@ const VehicleCard = ({ vehicle, selected, onPress }) => {
   );
 };
 
-
 export function HomeScreen({ navigation }) {
-  const [region, setRegion] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [eventsData, setEventsData] = useState([]);
@@ -58,8 +55,6 @@ export function HomeScreen({ navigation }) {
     { id: 1, brand: "Audi", model: "Q3", year: 2021, plate: "B 1234 CD" },
     { id: 2, brand: "BMW", model: "X2", year: 2021, plate: "B 5632 DM" },
   ];
-  
-
   const debouncedSearch = debounce((text) => {
     setSearchQuery(text);
     if (text.length > 0) {
@@ -74,25 +69,33 @@ export function HomeScreen({ navigation }) {
     }
   }, 300);
 
+  const [region, setRegion] = useState({
+    latitude: 50.8503, // Brussel
+    longitude: 4.3517,
+    latitudeDelta: 0.3,
+    longitudeDelta: 0.3,
+  });
+
+  const [userLocation, setUserLocation] = useState(null);
+  // Locatie permissie vragen, maar kaart niet updaten
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
+        console.log("📛 Locatiepermissie geweigerd");
         return;
       }
+
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
+
       setUserLocation({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });
-      setRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
+
+      // We VERPLAATSEN de kaart NIET automatisch naar user location!
     })();
 
     const fetchEvents = async () => {
@@ -182,30 +185,6 @@ export function HomeScreen({ navigation }) {
             </Marker>
           ))}
       </MapView>
-
-      {/* 🔶 Orange parking tag */}
-<View style={styles.parkingTag}>
-  <Text style={styles.parkingTagText}>Parking Goovaerts →</Text>
-</View>
-
-{/* 🎯 Location button (right bottom corner) */}
-<TouchableOpacity style={styles.locateButton}>
-  <Icon name="crosshairs" size={18} color="white" />
-</TouchableOpacity>
-
-{/* 🔍 Search bar (bottom center) */}
-<View style={styles.searchBarWrapper}>
-  <View style={styles.searchBar}>
-    <Icon name="search" size={16} color="#001D3D" />
-    <TextInput
-      placeholder="Search for your destination"
-      placeholderTextColor="#999"
-      style={styles.searchInput}
-    />
-    <Icon name="microphone" size={16} color="#001D3D" />
-  </View>
-</View>
-
 
       {/* Filter modal */}
       {filterVisible && (
@@ -312,36 +291,35 @@ export function HomeScreen({ navigation }) {
       {/* Vehicle selection modal */}
       {vehiclesModalVisible && (
         <Modal
-  visible={vehiclesModalVisible}
-  animationType="fade"
-  transparent={true}
->
-  <View style={styles.filterContainer}>
-    <View style={[styles.filterBox, { height: 250 }]}>
-      <Text style={styles.filterTitle}>Select your vehicle</Text>
-      <FlatList
-        horizontal
-        data={vehicles}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ gap: 10 }}
-        renderItem={({ item }) => (
-          <VehicleCard
-            vehicle={item}
-            selected={selectedVehicle?.id === item.id}
-            onPress={() => handleVehicleSelect(item)}
-          />
-        )}
-      />
-      <TouchableOpacity
-        style={styles.addVehicleButton}
-        onPress={() => console.log("Add new vehicle")}
-      >
-        <Icon name="plus" size={20} color="#001D3D" />
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
-
+          visible={vehiclesModalVisible}
+          animationType="fade"
+          transparent={true}
+        >
+          <View style={styles.filterContainer}>
+            <View style={[styles.filterBox, { height: 250 }]}>
+              <Text style={styles.filterTitle}>Select your vehicle</Text>
+              <FlatList
+                horizontal
+                data={vehicles}
+                keyExtractor={(item) => item.id.toString()}
+                contentContainerStyle={{ gap: 10 }}
+                renderItem={({ item }) => (
+                  <VehicleCard
+                    vehicle={item}
+                    selected={selectedVehicle?.id === item.id}
+                    onPress={() => handleVehicleSelect(item)}
+                  />
+                )}
+              />
+              <TouchableOpacity
+                style={styles.addVehicleButton}
+                onPress={() => console.log("Add new vehicle")}
+              >
+                <Icon name="plus" size={20} color="#001D3D" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       )}
 
       {/* Selected vehicle display */}
@@ -498,7 +476,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
-  
+
   locateButton: {
     position: "absolute",
     bottom: 160,
@@ -508,7 +486,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     elevation: 5,
   },
-  
+
   searchBarWrapper: {
     position: "absolute",
     bottom: 90,
@@ -525,20 +503,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     elevation: 4,
-  },
-  
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
-  
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    paddingHorizontal: 10,
-    color: "#001D3D",
   },
 
   vehicleCard: {
@@ -583,8 +547,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginLeft: 10,
   },
-  
-  
 });
 
 export default HomeScreen;

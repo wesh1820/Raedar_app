@@ -88,7 +88,8 @@ const ParkingDetailScreen = ({ route, navigation }) => {
       } else {
         Alert.alert(
           "API Error",
-          error.response?.data?.message || "An error occurred while creating the ticket."
+          error.response?.data?.message ||
+            "An error occurred while creating the ticket."
         );
       }
     }
@@ -98,7 +99,10 @@ const ParkingDetailScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>PARKING DETAIL</Text>
 
-      <Image source={require("../assets/parking.png")} style={styles.parkingImage} />
+      <Image
+        source={require("../assets/parking.png")}
+        style={styles.parkingImage}
+      />
 
       <View style={styles.headerContent}>
         <View>
@@ -121,14 +125,20 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
       <Text style={styles.rulesTitle}>RULES</Text>
       <Text style={styles.rulesText}>
-        These rules and regulations for the use of <Text style={{ fontWeight: "bold" }}>{parking.name || "this parking"}</Text>. In these Rules, unless the context otherwise requires...
+        These rules and regulations for the use of{" "}
+        <Text style={{ fontWeight: "bold" }}>
+          {parking.name || "this parking"}
+        </Text>
+        . In these Rules, unless the context otherwise requires...
         <Text style={styles.more}> more...</Text>
       </Text>
 
       <View style={styles.row}>
         <View style={styles.slotsBox}>
           <View style={styles.indicator} />
-          <Text style={styles.slotsText}>{parking.capacity} slots available</Text>
+          <Text style={styles.slotsText}>
+            {parking.capacity} slots available
+          </Text>
         </View>
         <View style={styles.slotsBox}>
           <View style={styles.indicator} />
@@ -158,7 +168,11 @@ const ParkingDetailScreen = ({ route, navigation }) => {
             onValueChange={(value) => setMinutes(parseInt(value))}
           >
             {[0, 15, 30, 45].map((min) => (
-              <Picker.Item key={min} label={`${min} min`} value={min.toString()} />
+              <Picker.Item
+                key={min}
+                label={`${min} min`}
+                value={min.toString()}
+              />
             ))}
           </Picker>
         </View>
@@ -166,7 +180,9 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
       <View style={styles.row}>
         <View style={styles.slotsBox}>
-          <Text style={styles.slotsText}>Duur: {totalDurationInMinutes} minuten</Text>
+          <Text style={styles.slotsText}>
+            Duur: {totalDurationInMinutes} minuten
+          </Text>
         </View>
         <View style={styles.slotsBox}>
           <Text style={styles.slotsText}>Totaal: €{totalPrice.toFixed(2)}</Text>
@@ -183,25 +199,83 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   // jouw style code zoals eerder, die laat je zoals het was
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  sectionLabel: { fontSize: 12, fontWeight: "bold", color: "#1B263B", letterSpacing: 1.2, marginBottom: 10 },
-  parkingImage: { width: "100%", height: 150, borderRadius: 10, marginBottom: 20 },
-  headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#1B263B",
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  parkingImage: {
+    width: "100%",
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   title: { fontSize: 24, fontWeight: "bold", color: "#000" },
   subtitle: { fontSize: 14, color: "#5D6A77" },
   badgeRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
-  badge: { flexDirection: "row", backgroundColor: "#F0F4F8", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, alignItems: "center", gap: 6 },
+  badge: {
+    flexDirection: "row",
+    backgroundColor: "#F0F4F8",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    gap: 6,
+  },
   badgeText: { color: "#1B263B", fontWeight: "600" },
-  rulesTitle: { fontWeight: "700", marginBottom: 6, color: "#1B263B", fontSize: 14 },
-  rulesText: { color: "#5D6A77", fontSize: 14, lineHeight: 22, marginBottom: 20 },
+  rulesTitle: {
+    fontWeight: "700",
+    marginBottom: 6,
+    color: "#1B263B",
+    fontSize: 14,
+  },
+  rulesText: {
+    color: "#5D6A77",
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
   more: { color: "#1B263B", fontWeight: "600" },
-  row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
-  slotsBox: { flex: 1, backgroundColor: "#F0F4F8", paddingVertical: 14, paddingHorizontal: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 10 },
-  indicator: { width: 4, height: "100%", backgroundColor: "#EB6534", borderRadius: 3 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  slotsBox: {
+    flex: 1,
+    backgroundColor: "#F0F4F8",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  indicator: {
+    width: 4,
+    height: "100%",
+    backgroundColor: "#EB6534",
+    borderRadius: 3,
+  },
   slotsText: { fontWeight: "600", color: "#1B263B", flexShrink: 1 },
   pickerContainer: { flex: 1, marginRight: 10 },
   pickerLabel: { fontSize: 16, marginBottom: 5 },
   picker: { height: 150, width: "100%" },
-  bookButton: { backgroundColor: "#001D3D", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 10 },
+  bookButton: {
+    backgroundColor: "#001D3D",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+  },
   bookText: { color: "white", fontWeight: "bold", fontSize: 16 },
 });
 

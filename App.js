@@ -12,19 +12,11 @@ import TicketScreen from "./screens/TicketScreen";
 import MoreScreen from "./screens/MoreScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignUpScreen from "./screens/SignUpScreen";
-// import EventDetailScreen from "./screens/EventDetailScreen";
+import EventDetailScreen from "./screens/EventDetailScreen";
 import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
 import WalkthroughScreen from "./screens/WalkthroughScreen";
-
-
-
-const EventDetailScreen = () => (
-  <View><Text>Temporarily disabled</Text></View>
-);
-
-
 
 // Import icons
 import {
@@ -72,9 +64,10 @@ function AuthStack({ setIsLoggedIn }) {
         {(props) => <SignUpScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
       <Stack.Screen name="Walkthrough" options={{ headerShown: false }}>
-  {(props) => <WalkthroughScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
-</Stack.Screen>
-
+        {(props) => (
+          <WalkthroughScreen {...props} setIsLoggedIn={setIsLoggedIn} />
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -83,7 +76,6 @@ function AuthStack({ setIsLoggedIn }) {
 function MainStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
-  
       <Stack.Screen name="Main" options={{ headerShown: false }}>
         {(props) => <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
@@ -98,7 +90,7 @@ function MainStack({ setIsLoggedIn }) {
           headerBackTitleVisible: false,
         }}
       />
-      
+
       <Stack.Screen
         name="CategoryEvent"
         component={CategoryEventScreen}

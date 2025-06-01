@@ -23,12 +23,11 @@ const CategoryEventScreen = ({ route }) => {
 
     return (
       <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate("ParkingDetail", { parking: item })}
-    >
-    
-    
-    
+        style={styles.eventCard}
+        onPress={() =>
+          navigation.navigate("EventDetailScreen", { event: item })
+        }
+      >
         {imageUri && (
           <Image source={{ uri: imageUri }} style={styles.eventImage} />
         )}
