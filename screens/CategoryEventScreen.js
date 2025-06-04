@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,58 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons"; // of 'react-native-vector-icons'
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 
-const CategoryEventScreen = ({ route }) => {
-  const { category, events } = route.params;
+const CategoryEventScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+
+  const { category, events } = route.params;
+
+  const [isPremium, setIsPremium] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPremiumStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) {
+          // Geen token? Dan misschien terug naar login of iets anders
+          setIsPremium(false);
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (data && data.premium !== undefined) {
+          setIsPremium(data.premium);
+        } else {
+          setIsPremium(false);
+        }
+      } catch (error) {
+        console.log("Error fetching premium status:", error);
+        setIsPremium(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPremiumStatus();
+  }, []);
 
   const renderEvent = ({ item }) => {
     const imageUri = item.imageName
@@ -24,9 +69,13 @@ const CategoryEventScreen = ({ route }) => {
     return (
       <TouchableOpacity
         style={styles.eventCard}
-        onPress={() =>
-          navigation.navigate("EventDetailScreen", { event: item })
-        }
+        onPress={() => {
+          if (isPremium) {
+            navigation.navigate("EventDetailScreen", { event: item });
+          } else {
+            navigation.navigate("ParkingDetail", { parking: item });
+          }
+        }}
       >
         {imageUri && (
           <Image source={{ uri: imageUri }} style={styles.eventImage} />
@@ -38,15 +87,27 @@ const CategoryEventScreen = ({ route }) => {
     );
   };
 
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color="#000" />
+        <Text>Loading premium status...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Eigen header met afbeelding bovenop */}
       <View style={styles.headerContainer}>
         <Image
           source={require("../assets/festival.png")}
           style={styles.headerImage}
         />
-        {/* Eigen back-button */}
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
@@ -57,7 +118,6 @@ const CategoryEventScreen = ({ route }) => {
         <Text style={styles.headerText}>{category}</Text>
       </View>
 
-      {/* Evenementenlijst */}
       <FlatList
         data={events}
         keyExtractor={(item) => `${item._id}-${item.title}`}

@@ -1,23 +1,150 @@
-// screens/MoreScreen.js
-
-import React, { useState } from "react";
-import { View, Text, Switch, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  Switch,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const MoreScreen = ({ setIsLoggedIn }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(null);
+  const [pendingCancellation, setPendingCancellation] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const userToken = await AsyncStorage.getItem("userToken");
+      if (!userToken) {
+        setIsLoggedIn(false);
+        return;
+      }
+      setToken(userToken);
+
+      try {
+        const response = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+            },
+          }
+        );
+        const data = await response.json();
+        console.log("Fetched user data:", data);
+
+        if (data) {
+          setUserEmail(data.email || "");
+          setIsPremium(data.premium || false);
+          setPendingCancellation(data.premiumCancelPending || false);
+        }
+      } catch (err) {
+        console.log("Error fetching user info:", err);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem("userToken");
     setIsLoggedIn(false);
   };
 
+  const handleBuyPremium = async () => {
+    if (isPremium) {
+      Alert.alert("Je hebt al een premium account.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(
+        "https://raedar-backend.onrender.com/api/users/premium",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+      setLoading(false);
+      if (data.success) {
+        Alert.alert(
+          "Premium geactiveerd!",
+          "Je hebt nu toegang tot premium functies."
+        );
+        setIsPremium(true);
+        setPendingCancellation(false);
+      } else {
+        Alert.alert("Fout", data.error || "Kon premium niet activeren.");
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert("Fout", "Er is een probleem met de server.");
+    }
+  };
+
+  const handleCancelPremium = async () => {
+    Alert.alert(
+      "Premium opzeggen",
+      "Je blijft deze maand premium gebruiken, maar je abonnement wordt na deze maand stopgezet en je wordt niet meer gefactureerd.",
+      [
+        { text: "Annuleer", style: "cancel" },
+        {
+          text: "Bevestig",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const response = await fetch(
+                "https://raedar-backend.onrender.com/api/users/premium/cancel",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+              const data = await response.json();
+              setLoading(false);
+              if (data.success) {
+                Alert.alert(
+                  "Premium geannuleerd",
+                  "Je premium abonnement wordt na deze maand stopgezet."
+                );
+                setPendingCancellation(true);
+              } else {
+                Alert.alert(
+                  "Fout",
+                  data.error || "Kon premium niet annuleren."
+                );
+              }
+            } catch (error) {
+              setLoading(false);
+              Alert.alert("Fout", "Er is een probleem met de server.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Account</Text>
-      <TouchableOpacity style={styles.row}>
-        <Text style={styles.label}>Profile</Text>
-      </TouchableOpacity>
+
+      {userEmail ? (
+        <Text style={styles.emailText}>E-mail: {userEmail}</Text>
+      ) : (
+        <Text style={styles.emailText}>Email wordt geladen...</Text>
+      )}
 
       <Text style={styles.sectionTitle}>Preferences</Text>
       <View style={styles.row}>
@@ -29,6 +156,34 @@ const MoreScreen = ({ setIsLoggedIn }) => {
       </View>
 
       <Text style={styles.sectionTitle}>App</Text>
+
+      {loading && <ActivityIndicator size="small" color="#000" />}
+
+      {!loading && !isPremium && (
+        <TouchableOpacity style={styles.row} onPress={handleBuyPremium}>
+          <Text style={styles.label}>Koop Premium</Text>
+        </TouchableOpacity>
+      )}
+
+      {!loading && isPremium && !pendingCancellation && (
+        <TouchableOpacity
+          style={[styles.row, styles.premiumRow]}
+          onPress={handleCancelPremium}
+        >
+          <Text style={[styles.label, styles.premiumLabel]}>
+            Zet Premium uit
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {!loading && isPremium && pendingCancellation && (
+        <View style={[styles.row, styles.pendingCancelRow]}>
+          <Text style={[styles.label, styles.pendingCancelLabel]}>
+            Premium opgezegd - loopt nog tot het einde van de maand
+          </Text>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.row} onPress={handleLogout}>
         <Text style={[styles.label, { color: "red" }]}>Logout</Text>
       </TouchableOpacity>
@@ -50,16 +205,36 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: "#333",
   },
+  emailText: {
+    fontSize: 16,
+    color: "#000",
+    marginBottom: 15,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    alignItems: "center",
   },
   label: {
     fontSize: 16,
     color: "#444",
+  },
+  premiumRow: {
+    backgroundColor: "#dff0d8",
+  },
+  premiumLabel: {
+    color: "green",
+    fontWeight: "bold",
+  },
+  pendingCancelRow: {
+    backgroundColor: "#fff3cd",
+  },
+  pendingCancelLabel: {
+    color: "#856404",
+    fontWeight: "bold",
   },
 });
 

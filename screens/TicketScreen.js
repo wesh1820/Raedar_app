@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 
 const TicketScreen = ({ navigation, route }) => {
   const [tickets, setTickets] = useState([]);
@@ -43,9 +43,8 @@ const TicketScreen = ({ navigation, route }) => {
 
         const data = await response.json();
         setTickets(data.tickets);
-        initializeTimers(data.tickets);
+        await initializeTimers(data.tickets);
       } catch (err) {
-        console.error("Fout bij ophalen tickets: ", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -53,92 +52,102 @@ const TicketScreen = ({ navigation, route }) => {
     };
 
     fetchTickets();
+  }, []);
 
-    if (route.params?.newTicket) {
-      setTickets((prevTickets) => [...prevTickets, route.params.newTicket]);
-    }
-  }, [route.params?.newTicket]);
-
-  const initializeTimers = async (tickets) => {
+  // Timer initialiseren vanuit AsyncStorage en tickets data
+  const initializeTimers = async (ticketsList) => {
     const now = new Date();
     const timersMap = {};
 
-    // Laad timers op uit AsyncStorage
     const storedTimers = await AsyncStorage.getItem("timers");
     const storedTimersParsed = storedTimers ? JSON.parse(storedTimers) : {};
 
-    tickets.forEach((ticket) => {
-      const createdAt = new Date(ticket.createdAt);
-      const end = new Date(createdAt.getTime() + ticket.duration * 60 * 1000);
-      const remaining = end - now;
+    ticketsList.forEach((ticket) => {
+      const durationMs = ticket.duration * 60 * 1000;
+      const timerData = storedTimersParsed[ticket._id];
 
-      // Zet de timerstatus naar de opgeslagen waarde, als die er is
-      timersMap[ticket._id] = {
-        remaining: Math.max(remaining, 0),
-        isRunning: storedTimersParsed[ticket._id]?.isRunning || false,
-      };
+      if (timerData && timerData.isRunning && timerData.startedAt) {
+        const startedAt = new Date(timerData.startedAt);
+        const endTime = new Date(startedAt.getTime() + durationMs);
+        const remaining = endTime - now;
+
+        timersMap[ticket._id] = {
+          remaining: Math.max(remaining, 0),
+          isRunning: remaining > 0,
+          startedAt: timerData.startedAt,
+        };
+      } else {
+        timersMap[ticket._id] = {
+          remaining: durationMs,
+          isRunning: false,
+          startedAt: null,
+        };
+      }
     });
 
     setTimers(timersMap);
   };
 
+  // Herlaad timers bij scherm focus (als je terugkomt van detail)
+  useFocusEffect(
+    useCallback(() => {
+      initializeTimers(tickets);
+    }, [tickets])
+  );
+
+  // Timer loopt elke seconde door voor actieve timers
   useEffect(() => {
     const interval = setInterval(() => {
       setTimers((prev) => {
         const updated = {};
-        Object.entries(prev).forEach(([id, { remaining, isRunning }]) => {
-          if (isRunning) {
-            updated[id] = {
-              remaining: Math.max(remaining - 1000, 0),
-              isRunning,
-            };
+        Object.entries(prev).forEach(
+          ([id, { remaining, isRunning, startedAt }]) => {
+            if (isRunning && startedAt) {
+              const ticket = tickets.find((t) => t._id === id);
+              if (!ticket) {
+                updated[id] = { remaining, isRunning, startedAt };
+                return;
+              }
+              const durationMs = ticket.duration * 60 * 1000;
+              const startTime = new Date(startedAt);
+              const endTime = new Date(startTime.getTime() + durationMs);
+              const now = new Date();
+              const diff = endTime - now;
 
-            // Update de timer in AsyncStorage
-            AsyncStorage.setItem(
-              "timers",
-              JSON.stringify({
-                ...prev,
-                [id]: { remaining: updated[id].remaining, isRunning },
-              })
-            );
-          } else {
-            updated[id] = { remaining, isRunning };
+              if (diff <= 0) {
+                updated[id] = { remaining: 0, isRunning: false, startedAt };
+                saveTimerStatus(id, false, startedAt);
+              } else {
+                updated[id] = { remaining: diff, isRunning: true, startedAt };
+                saveTimerStatus(id, true, startedAt);
+              }
+            } else {
+              updated[id] = { remaining, isRunning, startedAt };
+            }
           }
-        });
+        );
         return updated;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [tickets]);
 
-  const handleStartTimer = (ticketId) => {
-    Alert.alert(
-      "Weet je het zeker?",
-      "Zodra de timer is gestart, kun je deze niet meer stoppen.",
-      [
-        {
-          text: "Annuleren",
-          style: "cancel",
-        },
-        {
-          text: "Bevestigen",
-          onPress: () => {
-            setTimers((prev) => {
-              const newTimers = {
-                ...prev,
-                [ticketId]: { ...prev[ticketId], isRunning: true },
-              };
+  // Opslaan timerstatus in AsyncStorage
+  const saveTimerStatus = async (id, running, startedAt) => {
+    try {
+      const storedTimers = await AsyncStorage.getItem("timers");
+      const timers = storedTimers ? JSON.parse(storedTimers) : {};
 
-              // Sla de nieuwe timerstatus op in AsyncStorage
-              AsyncStorage.setItem("timers", JSON.stringify(newTimers));
+      timers[id] = {
+        isRunning: running,
+        startedAt,
+      };
 
-              return newTimers;
-            });
-          },
-        },
-      ]
-    );
+      await AsyncStorage.setItem("timers", JSON.stringify(timers));
+    } catch (error) {
+      console.log("Error saving timer status:", error);
+    }
   };
 
   const formatCountdown = (ms) => {
@@ -149,7 +158,7 @@ const TicketScreen = ({ navigation, route }) => {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
-    return `${hours}u ${minutes}m ${seconds}s`;
+    return `${hours > 0 ? hours + "u " : ""}${minutes}m ${seconds}s`;
   };
 
   const formatDate = (dateString) => {
@@ -180,8 +189,10 @@ const TicketScreen = ({ navigation, route }) => {
             data={tickets}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => {
-              const timeLeft = timers[item._id]?.remaining;
+              const timer = timers[item._id];
+              const timeLeft = timer?.remaining ?? item.duration * 60 * 1000;
               const countdown = formatCountdown(timeLeft);
+              const isRunning = timer?.isRunning ?? false;
 
               return (
                 <TouchableOpacity
@@ -198,14 +209,27 @@ const TicketScreen = ({ navigation, route }) => {
                     </Text>
                     <Text style={styles.countdown}>{countdown}</Text>
 
-                    {/* Display the "Activate Timer" button only if the timer is not running */}
-                    {!timers[item._id]?.isRunning && (
+                    {!isRunning && timeLeft > 0 && (
                       <TouchableOpacity
                         style={styles.activateButton}
-                        onPress={() => handleStartTimer(item._id)}
+                        onPress={() =>
+                          navigation.navigate("TicketDetail", { ticket: item })
+                        }
                       >
-                        <Text style={styles.buttonText}>Activeer Timer</Text>
+                        <Text style={styles.buttonText}>Scan QR Code</Text>
                       </TouchableOpacity>
+                    )}
+
+                    {!isRunning && timeLeft === 0 && (
+                      <Text style={{ color: "red", marginTop: 8 }}>
+                        Timer verlopen
+                      </Text>
+                    )}
+
+                    {isRunning && (
+                      <Text style={{ color: "green", marginTop: 8 }}>
+                        Timer loopt
+                      </Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -283,15 +307,15 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   activateButton: {
-    marginTop: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#EB6534",
+    marginTop: 8,
+    backgroundColor: "#001D3D",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 5,
+    alignSelf: "flex-start",
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
+    color: "white",
   },
 });
 

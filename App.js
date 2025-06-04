@@ -25,7 +25,6 @@ import {
   FontAwesome,
 } from "react-native-vector-icons";
 
-// Ignore specific warnings
 LogBox.ignoreLogs(["Warning: ..."]);
 
 const Stack = createStackNavigator();
@@ -33,11 +32,23 @@ const Tab = createBottomTabNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       const token = await AsyncStorage.getItem("userToken");
-      setIsLoggedIn(!!token);
+      if (token) {
+        setIsLoggedIn(true);
+
+        // Voorbeeld: haal user data op uit AsyncStorage of API
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          setUser(JSON.parse(userData));
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUser(null);
+      }
     };
     checkLoginStatus();
   }, []);
@@ -45,7 +56,7 @@ export default function App() {
   return (
     <NavigationContainer>
       {isLoggedIn ? (
-        <MainStack setIsLoggedIn={setIsLoggedIn} />
+        <MainStack setIsLoggedIn={setIsLoggedIn} user={user} />
       ) : (
         <AuthStack setIsLoggedIn={setIsLoggedIn} />
       )}
@@ -53,7 +64,7 @@ export default function App() {
   );
 }
 
-// 🔐 Auth stack: Login + Signup
+// Auth stack: Login + Signup
 function AuthStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
@@ -72,13 +83,16 @@ function AuthStack({ setIsLoggedIn }) {
   );
 }
 
-// 🔄 Main stack (post-login)
-function MainStack({ setIsLoggedIn }) {
+// Main stack (post-login)
+function MainStack({ setIsLoggedIn, user }) {
   return (
     <Stack.Navigator>
       <Stack.Screen name="Main" options={{ headerShown: false }}>
-        {(props) => <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} />}
+        {(props) => (
+          <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} user={user} />
+        )}
       </Stack.Screen>
+
       <Stack.Screen
         name="EventDetailScreen"
         component={EventDetailScreen}
@@ -93,15 +107,17 @@ function MainStack({ setIsLoggedIn }) {
 
       <Stack.Screen
         name="CategoryEvent"
-        component={CategoryEventScreen}
         options={{
           headerShown: true,
           title: "",
           headerStyle: { backgroundColor: "" },
           headerTintColor: "#000000",
-          headerBackTitleVisible: false, // Verwijder de terugknop
+          headerBackTitleVisible: false,
         }}
-      />
+      >
+        {(props) => <CategoryEventScreen {...props} user={user} />}
+      </Stack.Screen>
+
       <Stack.Screen
         name="ParkingDetail"
         component={ParkingDetailScreen}
@@ -110,9 +126,10 @@ function MainStack({ setIsLoggedIn }) {
           title: "",
           headerStyle: { backgroundColor: "" },
           headerTintColor: "#000000",
-          headerBackTitleVisible: false, // Verwijder de terugknop
+          headerBackTitleVisible: false,
         }}
       />
+
       <Stack.Screen
         name="TicketDetail"
         component={TicketDetailScreen}
@@ -121,22 +138,22 @@ function MainStack({ setIsLoggedIn }) {
           title: "",
           headerStyle: { backgroundColor: "" },
           headerTintColor: "#000000",
-          headerBackTitleVisible: false, // Verwijder de terugknop
+          headerBackTitleVisible: false,
         }}
       />
     </Stack.Navigator>
   );
 }
 
-// 🧭 Bottom tabs
-function MainTabs({ setIsLoggedIn }) {
+// Bottom tabs
+function MainTabs({ setIsLoggedIn, user }) {
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: { backgroundColor: "#fff" },
         tabBarActiveTintColor: "#001D3D",
         tabBarInactiveTintColor: "#888",
-        headerShown: false, // Geen header op de tabs
+        headerShown: false,
       }}
     >
       <Tab.Screen

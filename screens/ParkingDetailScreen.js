@@ -11,16 +11,26 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome5";
+import * as Location from "expo-location";
+import { Linking } from "react-native";
 
 const ParkingDetailScreen = ({ route, navigation }) => {
   const { event, parking } = route.params;
   const [ticket, setTicket] = useState(null);
   const [userToken, setUserToken] = useState(null);
-  const [hours, setHours] = useState(1);
+  const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [showTimer, setShowTimer] = useState(false);
 
-  const pricePerHour = 1.3; // hardcoded prijs
+  const destinationLat = parseFloat(
+    parking.latitude?.$numberDouble || parking.latitude
+  );
+  const destinationLng = parseFloat(
+    parking.longitude?.$numberDouble || parking.longitude
+  );
+
+  const pricePerHour = 1.3;
   const totalDurationInMinutes = hours * 60 + minutes;
 
   useEffect(() => {
@@ -46,9 +56,32 @@ const ParkingDetailScreen = ({ route, navigation }) => {
     setTotalPrice(pricePerHour * durationInHours);
   }, [hours, minutes]);
 
+  function decimalToDMS(decimal, isLat) {
+    const absolute = Math.abs(decimal);
+    const degrees = Math.floor(absolute);
+    const minutesNotTruncated = (absolute - degrees) * 60;
+    const minutes = Math.floor(minutesNotTruncated);
+    const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
+
+    let direction = "";
+    if (isLat) {
+      direction = decimal >= 0 ? "N" : "S";
+    } else {
+      direction = decimal >= 0 ? "E" : "W";
+    }
+
+    return `${degrees}°${minutes}'${seconds}"${direction}`;
+  }
+
   const createTicket = async () => {
+    if (totalDurationInMinutes <= 0) {
+      Alert.alert("Ongeldige tijd", "Selecteer eerst een geldig tijdslot.");
+      setShowTimer(true); // Timer tonen na foutmelding
+      return;
+    }
+
     if (!userToken) {
-      Alert.alert("Error", "You must be logged in to create a ticket.");
+      Alert.alert("Error", "Je moet ingelogd zijn om een ticket te maken.");
       return;
     }
 
@@ -95,6 +128,42 @@ const ParkingDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleNavigate = async () => {
+    if (!parking?.latitude || !parking?.longitude) {
+      Alert.alert("Locatie onbekend", "Parking-coördinaten ontbreken.");
+      return;
+    }
+
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Toestemming geweigerd", "Locatietoegang is nodig.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const currentLat = location.coords.latitude;
+      const currentLng = location.coords.longitude;
+
+      const currentLatDMS = decimalToDMS(currentLat, true);
+      const currentLngDMS = decimalToDMS(currentLng, false);
+      const destLatDMS = decimalToDMS(destinationLat, true);
+      const destLngDMS = decimalToDMS(destinationLng, false);
+
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${destinationLat},${destinationLng}&travelmode=driving`;
+
+      Linking.openURL(url);
+
+      Alert.alert(
+        "Navigatie gestart",
+        `Huidige locatie: ${currentLatDMS} ${currentLngDMS}\nBestemming: ${destLatDMS} ${destLngDMS}`
+      );
+    } catch (error) {
+      console.error("Fout bij ophalen van locatie:", error);
+      Alert.alert("Fout", "Locatie ophalen mislukt");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>PARKING DETAIL</Text>
@@ -109,7 +178,14 @@ const ParkingDetailScreen = ({ route, navigation }) => {
           <Text style={styles.title}>{parking.name || "Parking"}</Text>
           <Text style={styles.subtitle}>{parking.location}</Text>
         </View>
-        <Icon name="bookmark" size={22} color="#1B263B" />
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity onPress={handleNavigate}>
+            <Icon name="route" size={22} color="#1B263B" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowTimer(!showTimer)}>
+            <Icon name="clock" size={22} color="#1B263B" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.badgeRow}>
@@ -133,61 +209,57 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         <Text style={styles.more}> more...</Text>
       </Text>
 
-      <View style={styles.row}>
-        <View style={styles.slotsBox}>
-          <View style={styles.indicator} />
-          <Text style={styles.slotsText}>
-            {parking.capacity} slots available
-          </Text>
-        </View>
-        <View style={styles.slotsBox}>
-          <View style={styles.indicator} />
-          <Text style={styles.slotsText}>€1.30/h</Text>
-        </View>
-      </View>
+      {showTimer && (
+        <>
+          <View style={styles.row}>
+            <View style={styles.pickerContainer}>
+              <Text style={styles.pickerLabel}>Uren</Text>
+              <Picker
+                selectedValue={hours.toString()}
+                style={styles.picker}
+                onValueChange={(value) => setHours(parseInt(value))}
+              >
+                {[...Array(24).keys()].map((i) => (
+                  <Picker.Item
+                    key={i}
+                    label={`${i} uur`}
+                    value={i.toString()}
+                  />
+                ))}
+              </Picker>
+            </View>
+            <View style={styles.pickerContainer}>
+              <Text style={styles.pickerLabel}>Minuten</Text>
+              <Picker
+                selectedValue={minutes.toString()}
+                style={styles.picker}
+                onValueChange={(value) => setMinutes(parseInt(value))}
+              >
+                {[0, 15, 30, 45].map((min) => (
+                  <Picker.Item
+                    key={min}
+                    label={`${min} min`}
+                    value={min.toString()}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
 
-      {/* Picker terug hieronder */}
-      <View style={styles.row}>
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Uren</Text>
-          <Picker
-            selectedValue={hours.toString()}
-            style={styles.picker}
-            onValueChange={(value) => setHours(parseInt(value))}
-          >
-            {[...Array(24).keys()].map((i) => (
-              <Picker.Item key={i} label={`${i} uur`} value={i.toString()} />
-            ))}
-          </Picker>
-        </View>
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Minuten</Text>
-          <Picker
-            selectedValue={minutes.toString()}
-            style={styles.picker}
-            onValueChange={(value) => setMinutes(parseInt(value))}
-          >
-            {[0, 15, 30, 45].map((min) => (
-              <Picker.Item
-                key={min}
-                label={`${min} min`}
-                value={min.toString()}
-              />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.row}>
-        <View style={styles.slotsBox}>
-          <Text style={styles.slotsText}>
-            Duur: {totalDurationInMinutes} minuten
-          </Text>
-        </View>
-        <View style={styles.slotsBox}>
-          <Text style={styles.slotsText}>Totaal: €{totalPrice.toFixed(2)}</Text>
-        </View>
-      </View>
+          <View style={styles.row}>
+            <View style={styles.slotsBox}>
+              <Text style={styles.slotsText}>
+                Duur: {totalDurationInMinutes} minuten
+              </Text>
+            </View>
+            <View style={styles.slotsBox}>
+              <Text style={styles.slotsText}>
+                Totaal: €{totalPrice.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
 
       <TouchableOpacity style={styles.bookButton} onPress={createTicket}>
         <Text style={styles.bookText}>Book Parking</Text>
@@ -197,7 +269,6 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // jouw style code zoals eerder, die laat je zoals het was
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   sectionLabel: {
     fontSize: 12,
@@ -208,7 +279,7 @@ const styles = StyleSheet.create({
   },
   parkingImage: {
     width: "100%",
-    height: 150,
+    height: 100,
     borderRadius: 10,
     marginBottom: 20,
   },
