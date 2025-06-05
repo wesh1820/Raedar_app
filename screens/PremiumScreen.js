@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Modal,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,42 +17,68 @@ const PremiumScreen = () => {
   const [isPremium, setIsPremium] = useState(false);
   const [pendingCancellation, setPendingCancellation] = useState(false);
   const [token, setToken] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Haal user data op en check premium verloop
+  const fetchUserData = async () => {
+    setLoading(true);
+    const userToken = await AsyncStorage.getItem("userToken");
+    if (!userToken) {
+      setIsPremium(false);
+      setPendingCancellation(false);
+      setToken(null);
+      setLoading(false);
+      return;
+    }
+    setToken(userToken);
+
+    try {
+      const response = await fetch(
+        "https://raedar-backend.onrender.com/api/users",
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (data) {
+        const now = new Date();
+        const expireDate = data.premiumEndDate
+          ? new Date(data.premiumEndDate)
+          : null;
+
+        console.log("User data:", data);
+        console.log("Now:", now);
+        console.log("Expire date:", expireDate);
+        console.log("Premium flag:", data.premium);
+
+        // Check of premium geldig is en nog niet verlopen
+        if (data.premium && expireDate && expireDate > now) {
+          setIsPremium(true);
+        } else {
+          setIsPremium(false);
+        }
+
+        setPendingCancellation(data.premiumCancelPending || false);
+      }
+    } catch (err) {
+      console.log("Error fetching user info:", err);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const userToken = await AsyncStorage.getItem("userToken");
-      if (!userToken) {
-        return;
-      }
-      setToken(userToken);
-
-      try {
-        const response = await fetch(
-          "https://raedar-backend.onrender.com/api/users",
-          {
-            headers: {
-              Authorization: `Bearer ${userToken}`,
-            },
-          }
-        );
-        const data = await response.json();
-        if (data) {
-          setIsPremium(data.premium || false);
-          setPendingCancellation(data.premiumCancelPending || false);
-        }
-      } catch (err) {
-        console.log("Error fetching user info:", err);
-      }
-    };
     fetchUserData();
   }, []);
 
-  const handleBuyPremium = async () => {
-    if (isPremium) {
-      Alert.alert("Je hebt al een premium account.");
-      return;
-    }
+  // Functie om premium te kopen (maand/jaar)
+  const purchasePremium = async (type) => {
+    // type: 'month' of 'year'
+    setShowModal(false);
     setLoading(true);
+
     try {
       const response = await fetch(
         "https://raedar-backend.onrender.com/api/users/premium",
@@ -61,14 +88,18 @@ const PremiumScreen = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({ premiumType: type }), // backend verwacht 'premiumType'
         }
       );
       const data = await response.json();
       setLoading(false);
       if (data.success) {
-        Alert.alert("Premium geactiveerd!");
-        setIsPremium(true);
-        setPendingCancellation(false);
+        Alert.alert(
+          "Succes",
+          `Premium geactiveerd (${type === "month" ? "maand" : "jaar"})!`
+        );
+        // Na succes vernieuw data om juiste expireDate te krijgen
+        fetchUserData();
       } else {
         Alert.alert("Fout", data.error || "Kon premium niet activeren.");
       }
@@ -78,6 +109,7 @@ const PremiumScreen = () => {
     }
   };
 
+  // Premium annuleren
   const handleCancelPremium = async () => {
     Alert.alert(
       "Premium opzeggen",
@@ -103,7 +135,7 @@ const PremiumScreen = () => {
               setLoading(false);
               if (data.success) {
                 Alert.alert("Premium geannuleerd.");
-                setPendingCancellation(true);
+                fetchUserData(); // update status
               } else {
                 Alert.alert(
                   "Fout",
@@ -150,7 +182,7 @@ const PremiumScreen = () => {
       {!loading && !isPremium && (
         <TouchableOpacity
           style={styles.button}
-          onPress={handleBuyPremium}
+          onPress={() => setShowModal(true)}
           activeOpacity={0.7}
         >
           <Text style={styles.buttonText}>Koop Premium</Text>
@@ -174,6 +206,43 @@ const PremiumScreen = () => {
           </Text>
         </View>
       )}
+
+      {/* Modal voor keuze maand of jaar */}
+      <Modal
+        visible={showModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Kies een abonnement</Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => purchasePremium("month")}
+            >
+              <Text style={styles.modalButtonText}>€4,99 per maand</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => purchasePremium("year")}
+            >
+              <Text style={styles.modalButtonText}>€48,99 per jaar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowModal(false)}
+              style={[styles.modalButton, styles.modalCancelButton]}
+            >
+              <Text style={[styles.modalButtonText, { color: "#EB6534" }]}>
+                Annuleer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -193,7 +262,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     color: "#001D3D",
     textAlign: "center",
-    textShadowColor: "#001D3D)",
+    textShadowColor: "#001D3D",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
@@ -238,26 +307,65 @@ const styles = StyleSheet.create({
     shadowColor: "#d9534f",
   },
   buttonText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 20,
     fontWeight: "700",
     letterSpacing: 1,
   },
   pendingContainer: {
+    marginTop: 10,
+    backgroundColor: "#fce5e3",
+    padding: 16,
+    borderRadius: 14,
     marginHorizontal: 20,
-    backgroundColor: "#EB6534",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#856404",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   pendingText: {
-    fontSize: 18,
-    color: "#856404",
+    color: "#d9534f",
     fontWeight: "700",
+    fontSize: 17,
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 25,
+    width: "100%",
+    maxWidth: 320,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 25,
+    textAlign: "center",
+    color: "#001D3D",
+  },
+  modalButton: {
+    backgroundColor: "#001D3D",
+    borderRadius: 25,
+    paddingVertical: 15,
+    marginVertical: 8,
+    alignItems: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: "#f4f4f4",
+    borderWidth: 1,
+    borderColor: "#EB6534",
+  },
+  modalButtonText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 17,
   },
 });
