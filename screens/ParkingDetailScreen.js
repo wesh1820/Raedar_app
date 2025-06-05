@@ -16,7 +16,6 @@ import { Linking } from "react-native";
 
 const ParkingDetailScreen = ({ route, navigation }) => {
   const { event, parking } = route.params;
-  const [ticket, setTicket] = useState(null);
   const [userToken, setUserToken] = useState(null);
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
@@ -47,7 +46,6 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         Alert.alert("Error", "Failed to retrieve authentication token.");
       }
     };
-
     getUserToken();
   }, []);
 
@@ -69,27 +67,26 @@ const ParkingDetailScreen = ({ route, navigation }) => {
     } else {
       direction = decimal >= 0 ? "E" : "W";
     }
-
     return `${degrees}°${minutes}'${seconds}"${direction}`;
   }
 
-  const createTicket = async () => {
+  const createTicketAndGoToPayment = async () => {
     if (totalDurationInMinutes <= 0) {
       Alert.alert("Ongeldige tijd", "Selecteer eerst een geldig tijdslot.");
-      setShowTimer(true); // Timer tonen na foutmelding
+      setShowTimer(true);
       return;
     }
-
     if (!userToken) {
       Alert.alert("Error", "Je moet ingelogd zijn om een ticket te maken.");
       return;
     }
-
     const newTicket = {
       type: `${parking.location}`,
-      price: totalPrice,
+      price: Number(totalPrice.toFixed(2)), // dit maakt er een number van met 2 decimalen
       availability: 1,
       duration: totalDurationInMinutes,
+      parkingName: parking.name,
+      location: parking.location,
     };
 
     try {
@@ -102,14 +99,9 @@ const ParkingDetailScreen = ({ route, navigation }) => {
       );
 
       if (response.status >= 200 && response.status < 300) {
-        setTicket(response.data.ticket);
-        Alert.alert(
-          "Ticket Created",
-          `Je hebt succesvol een ticket aangemaakt voor ${parking.location}.`
-        );
-        setTimeout(() => {
-          navigation.navigate("Main", { screen: "Tickets" });
-        }, 500);
+        const ticketData = response.data.ticket;
+        // Navigeer naar PaymentScreen met ticket data
+        navigation.navigate("PaymentScreen", { ticket: ticketData });
       } else {
         Alert.alert("Error", "Failed to create ticket. Try again.");
       }
@@ -140,7 +132,6 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         Alert.alert("Toestemming geweigerd", "Locatietoegang is nodig.");
         return;
       }
-
       const location = await Location.getCurrentPositionAsync({});
       const currentLat = location.coords.latitude;
       const currentLng = location.coords.longitude;
@@ -261,7 +252,10 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         </>
       )}
 
-      <TouchableOpacity style={styles.bookButton} onPress={createTicket}>
+      <TouchableOpacity
+        style={styles.bookButton}
+        onPress={createTicketAndGoToPayment}
+      >
         <Text style={styles.bookText}>Book Parking</Text>
       </TouchableOpacity>
     </View>
@@ -329,12 +323,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-  },
-  indicator: {
-    width: 4,
-    height: "100%",
-    backgroundColor: "#EB6534",
-    borderRadius: 3,
   },
   slotsText: { fontWeight: "600", color: "#1B263B", flexShrink: 1 },
   pickerContainer: { flex: 1, marginRight: 10 },

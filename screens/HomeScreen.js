@@ -49,6 +49,7 @@ export function HomeScreen({ navigation }) {
   const [vehiclesModalVisible, setVehiclesModalVisible] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [isPremium, setIsPremium] = useState(false); // Premium status
 
   const vehicles = [
     { id: 1, brand: "Audi", model: "Q3", year: 2021, plate: "B 1234 CD" },
@@ -61,6 +62,18 @@ export function HomeScreen({ navigation }) {
     latitudeDelta: 0.3,
     longitudeDelta: 0.3,
   });
+
+  // Simuleer premium status ophalen
+  useEffect(() => {
+    // TODO: vervang dit met jouw echte logic (API/localstorage/etc)
+    const fetchPremiumStatus = async () => {
+      // Simulatie: na 1 sec premium true zetten (of false)
+      setTimeout(() => {
+        setIsPremium(true); // Zet hier op false om premium uit te zetten
+      }, 1000);
+    };
+    fetchPremiumStatus();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -142,6 +155,7 @@ export function HomeScreen({ navigation }) {
           .flatMap((item) => item.events)
           .map((event, index) => (
             <React.Fragment key={`event-${index}`}>
+              {/* Altijd event markers tonen */}
               <Marker
                 coordinate={{
                   latitude: event.latitude,
@@ -155,7 +169,9 @@ export function HomeScreen({ navigation }) {
                 />
               </Marker>
 
-              {event.parkings &&
+              {/* Parkings alleen tonen als premium */}
+              {isPremium &&
+                event.parkings &&
                 event.parkings.map((parking, pIndex) => (
                   <Marker
                     key={`parking-${index}-${pIndex}`}
@@ -317,7 +333,6 @@ export function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // Alles uit jouw originele styles hier...
   container: { flex: 1 },
   map: { width: "100%", height: "100%" },
   pinIcon: { width: 20, height: 30, resizeMode: "contain" },
@@ -424,6 +439,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
     marginLeft: 10,
+  },
+  locationDotOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0, 29, 61, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#001D3D",
   },
 });
 

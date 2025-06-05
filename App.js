@@ -17,7 +17,8 @@ import EventDetailScreen from "./screens/EventDetailScreen";
 import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
-import AccountScreen from "./screens/AccountScreen"; // ✅ nieuwe screen
+import AccountScreen from "./screens/AccountScreen";
+import PaymentScreen from "./screens/PaymentScreen";
 
 // Icons
 import {
@@ -25,6 +26,7 @@ import {
   Ionicons,
   FontAwesome,
 } from "react-native-vector-icons";
+import PremiumScreen from "./screens/PremiumScreen";
 
 LogBox.ignoreLogs(["Warning: ..."]);
 
@@ -63,7 +65,7 @@ export default function App() {
   );
 }
 
-// Auth stack
+// Auth stack for login/signup
 function AuthStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
@@ -82,7 +84,7 @@ function AuthStack({ setIsLoggedIn }) {
   );
 }
 
-// Main stack (post-login)
+// Main stack after login
 function MainStack({ setIsLoggedIn, user }) {
   return (
     <Stack.Navigator>
@@ -129,18 +131,26 @@ function MainStack({ setIsLoggedIn, user }) {
           headerBackTitleVisible: false,
         }}
       />
-
-      {/* ✅ Zorg dat 'Account' screen hier is toegevoegd */}
       <Stack.Screen
         name="Account"
         component={AccountScreen}
         options={{ headerShown: true, title: "Account" }}
       />
+      <Stack.Screen
+        name="PaymentScreen"
+        component={PaymentScreen}
+        options={{ headerShown: true, title: "Payment" }}
+      />
+      <Stack.Screen
+        name="Premium"
+        component={PremiumScreen}
+        options={{ headerShown: true, title: "Premium" }}
+      />
     </Stack.Navigator>
   );
 }
 
-// Bottom tabs
+// Bottom tab navigation
 function MainTabs({ setIsLoggedIn, user }) {
   return (
     <Tab.Navigator
