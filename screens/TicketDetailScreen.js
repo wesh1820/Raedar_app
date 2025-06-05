@@ -122,9 +122,7 @@ const TicketDetailScreen = ({ route }) => {
       </TouchableOpacity>
 
       {!isRunning && remainingTime > 0 && (
-        <Text style={styles.startHint}>
-          Klik op de QR-code om de timer te starten
-        </Text>
+        <Text style={styles.startHint}></Text>
       )}
 
       {!isRunning && remainingTime === 0 && (

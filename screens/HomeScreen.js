@@ -13,80 +13,61 @@ import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import axios from "axios";
 import { debounce } from "lodash";
-import Icon from "react-native-vector-icons/FontAwesome"; // <-- Voeg dit toe voor iconen
+import Icon from "react-native-vector-icons/FontAwesome";
 
-const VehicleCard = ({ vehicle, selected, onPress }) => {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.vehicleCard,
-        selected ? styles.vehicleCardSelected : styles.vehicleCardDefault,
-      ]}
-    >
-      <View style={styles.vehicleCardHeader}>
-        <Icon name="car" size={18} color={selected ? "#fff" : "#001D3D"} />
+const VehicleCard = ({ vehicle, selected, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      styles.vehicleCard,
+      selected ? styles.vehicleCardSelected : styles.vehicleCardDefault,
+    ]}
+  >
+    <View style={styles.vehicleCardHeader}>
+      <Icon name="car" size={18} color={selected ? "#fff" : "#001D3D"} />
+    </View>
+    <Text style={[styles.vehicleCardTitle, selected && { color: "#fff" }]}>
+      {vehicle.year} {vehicle.brand} {vehicle.model}
+    </Text>
+    <Text style={[styles.vehicleCardPlate, selected && { color: "#fff" }]}>
+      {vehicle.plate}
+    </Text>
+    {selected && (
+      <View style={styles.checkmark}>
+        <Icon name="check-square" size={18} color="#fff" />
       </View>
-      <Text style={[styles.vehicleCardTitle, selected && { color: "#fff" }]}>
-        {vehicle.year} {vehicle.brand} {vehicle.model}
-      </Text>
-      <Text style={[styles.vehicleCardPlate, selected && { color: "#fff" }]}>
-        {vehicle.plate}
-      </Text>
-      {selected && (
-        <View style={styles.checkmark}>
-          <Icon name="check-square" size={18} color="#fff" />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-};
+    )}
+  </TouchableOpacity>
+);
 
 export function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [eventsData, setEventsData] = useState([]);
-  const [filterVisible, setFilterVisible] = useState(false); // Filter is initially hidden
+  const [filterVisible, setFilterVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [vehiclesModalVisible, setVehiclesModalVisible] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
   const vehicles = [
     { id: 1, brand: "Audi", model: "Q3", year: 2021, plate: "B 1234 CD" },
     { id: 2, brand: "BMW", model: "X2", year: 2021, plate: "B 5632 DM" },
   ];
-  const debouncedSearch = debounce((text) => {
-    setSearchQuery(text);
-    if (text.length > 0) {
-      const filtered = eventsData
-        .flatMap((event) => event.events)
-        .filter((event) =>
-          event.title.toLowerCase().includes(text.toLowerCase())
-        );
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
-    }
-  }, 300);
 
   const [region, setRegion] = useState({
-    latitude: 50.8503, // Brussel
+    latitude: 50.8503,
     longitude: 4.3517,
     latitudeDelta: 0.3,
     longitudeDelta: 0.3,
   });
 
-  const [userLocation, setUserLocation] = useState(null);
-  // Locatie permissie vragen, maar kaart niet updaten
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.log("📛 Locatiepermissie geweigerd");
-        return;
-      }
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
 
-      let location = await Location.getCurrentPositionAsync({
+      const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
 
@@ -94,8 +75,6 @@ export function HomeScreen({ navigation }) {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });
-
-      // We VERPLAATSEN de kaart NIET automatisch naar user location!
     })();
 
     const fetchEvents = async () => {
@@ -104,16 +83,27 @@ export function HomeScreen({ navigation }) {
           "https://raedar-backend.onrender.com/api/events"
         );
         setEventsData(response.data);
-      } catch (error) {
-        console.error("❌ Error fetching events:", error);
+      } catch (err) {
+        console.error("❌ Error fetching events:", err);
       }
     };
+
     fetchEvents();
   }, []);
 
-  const handleSearch = (text) => {
-    debouncedSearch(text);
-  };
+  const debouncedSearch = debounce((text) => {
+    setSearchQuery(text);
+    if (text.length > 0) {
+      const filtered = eventsData
+        .flatMap((e) => e.events)
+        .filter((event) =>
+          event.title.toLowerCase().includes(text.toLowerCase())
+        );
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  }, 300);
 
   const handleSuggestionPress = (event) => {
     setSearchQuery(event.title);
@@ -124,32 +114,13 @@ export function HomeScreen({ navigation }) {
       latitudeDelta: 0.05,
       longitudeDelta: 0.05,
     });
-    setSelectedEvent(event); // 👈 Trigger popup
-    setFilterVisible(false); // Close filter modal when selecting event
-  };
-
-  const handleMarkerPress = (event) => {
     setSelectedEvent(event);
-  };
-
-  const handleCloseEventModal = () => {
-    setSelectedEvent(null);
-  };
-
-  const handleGoToEventDetails = () => {
-    if (selectedEvent) {
-      navigation.navigate("EventDetailScreen", { event: selectedEvent });
-      setSelectedEvent(null);
-    }
-  };
-
-  const handleRegionChange = (newRegion) => {
-    setRegion(newRegion);
+    setFilterVisible(false);
   };
 
   const handleVehicleSelect = (vehicle) => {
     setSelectedVehicle(vehicle);
-    setVehiclesModalVisible(false); // Close vehicle modal after selection
+    setVehiclesModalVisible(false);
   };
 
   return (
@@ -157,7 +128,7 @@ export function HomeScreen({ navigation }) {
       <MapView
         style={styles.map}
         region={region}
-        onRegionChangeComplete={handleRegionChange}
+        onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
       >
         {userLocation && (
           <Marker coordinate={userLocation}>
@@ -170,25 +141,44 @@ export function HomeScreen({ navigation }) {
         {eventsData
           .flatMap((item) => item.events)
           .map((event, index) => (
-            <Marker
-              key={index}
-              coordinate={{
-                latitude: event.latitude,
-                longitude: event.longitude,
-              }}
-              onPress={() => handleMarkerPress(event)}
-            >
-              <Image
-                source={require("../assets/pin-icon3.png")}
-                style={styles.pinIcon}
-              />
-            </Marker>
+            <React.Fragment key={`event-${index}`}>
+              <Marker
+                coordinate={{
+                  latitude: event.latitude,
+                  longitude: event.longitude,
+                }}
+                onPress={() => setSelectedEvent(event)}
+              >
+                <Image
+                  source={require("../assets/pin-icon3.png")}
+                  style={styles.pinIcon}
+                />
+              </Marker>
+
+              {event.parkings &&
+                event.parkings.map((parking, pIndex) => (
+                  <Marker
+                    key={`parking-${index}-${pIndex}`}
+                    coordinate={{
+                      latitude: parseFloat(parking.latitude),
+                      longitude: parseFloat(parking.longitude),
+                    }}
+                    title={parking.location}
+                    description={`Capacity: ${parking.capacity}, €${parking.price}`}
+                  >
+                    <Image
+                      source={require("../assets/pin-icon2.png")}
+                      style={styles.pinIcon}
+                    />
+                  </Marker>
+                ))}
+            </React.Fragment>
           ))}
       </MapView>
 
       {/* Filter modal */}
       {filterVisible && (
-        <Modal visible={filterVisible} animationType="fade" transparent={true}>
+        <Modal visible={true} animationType="fade" transparent={true}>
           <View style={styles.filterContainer}>
             <View style={styles.filterBox}>
               <Text style={styles.filterTitle}>Search for an Event</Text>
@@ -196,24 +186,23 @@ export function HomeScreen({ navigation }) {
                 style={styles.searchInput}
                 placeholder="Type event name..."
                 value={searchQuery}
-                onChangeText={handleSearch}
+                onChangeText={(text) => debouncedSearch(text)}
               />
               <FlatList
                 data={suggestions}
-                keyExtractor={(item, index) => index.toString()}
-                style={styles.suggestionsList}
+                keyExtractor={(item, idx) => idx.toString()}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    onPress={() => handleSuggestionPress(item)}
                     style={styles.suggestionItem}
+                    onPress={() => handleSuggestionPress(item)}
                   >
                     <Text>{item.title}</Text>
                   </TouchableOpacity>
                 )}
               />
               <TouchableOpacity
-                onPress={() => setFilterVisible(false)}
                 style={styles.closeFilterButton}
+                onPress={() => setFilterVisible(false)}
               >
                 <Text style={styles.closeButtonText}>Close</Text>
               </TouchableOpacity>
@@ -224,77 +213,71 @@ export function HomeScreen({ navigation }) {
 
       {/* Event detail modal */}
       {selectedEvent && (
-        <Modal
-          visible={true}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={handleCloseEventModal}
-        >
+        <Modal visible={true} animationType="slide" transparent={true}>
           <TouchableOpacity
             style={styles.overlay}
-            onPress={handleCloseEventModal}
+            onPress={() => setSelectedEvent(null)}
           >
-            {selectedEvent.imageName && (
-              <View style={styles.modalContainer}>
-                <View style={styles.eventModalContainer}>
+            <View style={styles.modalContainer}>
+              <View style={styles.eventModalContainer}>
+                {selectedEvent.imageName && (
                   <Image
                     source={{
                       uri: `https://raedar-backend.onrender.com${selectedEvent.imageName}`,
                     }}
                     style={styles.eventImage}
                   />
-                  <View style={styles.eventModalBox}>
-                    <Text style={styles.eventModalTitle}>
-                      {selectedEvent.title}
-                    </Text>
-                    <Text>{selectedEvent.description}</Text>
-                    <Text>Location: {selectedEvent.location}</Text>
-                    <Text>Date: {selectedEvent.date}</Text>
+                )}
+                <View style={styles.eventModalBox}>
+                  <Text style={styles.eventModalTitle}>
+                    {selectedEvent.title}
+                  </Text>
+                  <Text>{selectedEvent.description}</Text>
+                  <Text>Location: {selectedEvent.location}</Text>
+                  <Text>Date: {selectedEvent.date}</Text>
 
-                    <TouchableOpacity
-                      onPress={handleGoToEventDetails}
-                      style={styles.goToParkingButton}
-                    >
-                      <Text style={styles.goToParkingText}>See parking</Text>
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      navigation.navigate("EventDetailScreen", {
+                        event: selectedEvent,
+                      });
+                      setSelectedEvent(null);
+                    }}
+                    style={styles.goToParkingButton}
+                  >
+                    <Text style={styles.goToParkingText}>See parking</Text>
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={handleCloseEventModal}
-                      style={styles.closeModalButton}
-                    >
-                      <Text style={styles.closeButtonText}>Close</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    onPress={() => setSelectedEvent(null)}
+                    style={styles.closeModalButton}
+                  >
+                    <Text style={styles.closeButtonText}>Close</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            )}
+            </View>
           </TouchableOpacity>
         </Modal>
       )}
 
-      {/* Open Filter button with icon */}
       <TouchableOpacity
         style={styles.openFilterButton}
         onPress={() => setFilterVisible(true)}
       >
-        <Icon name="filter" size={20} color="white" /> {/* Filter icoon */}
+        <Icon name="filter" size={20} color="white" />
       </TouchableOpacity>
 
-      {/* Voertuigen button */}
       <TouchableOpacity
         style={styles.vehiclesButton}
-        onPress={() => setVehiclesModalVisible(true)} // Show vehicle modal
+        onPress={() => setVehiclesModalVisible(true)}
       >
         <Text style={styles.vehiclesButtonText}>Voertuigen</Text>
       </TouchableOpacity>
 
-      {/* Vehicle selection modal */}
+      {/* Vehicle modal */}
       {vehiclesModalVisible && (
-        <Modal
-          visible={vehiclesModalVisible}
-          animationType="fade"
-          transparent={true}
-        >
+        <Modal visible={true} animationType="fade" transparent={true}>
           <View style={styles.filterContainer}>
             <View style={[styles.filterBox, { height: 250 }]}>
               <Text style={styles.filterTitle}>Select your vehicle</Text>
@@ -322,10 +305,11 @@ export function HomeScreen({ navigation }) {
         </Modal>
       )}
 
-      {/* Selected vehicle display */}
       {selectedVehicle && (
         <View style={styles.selectedVehicleContainer}>
-          <Text>Selected Vehicle: {selectedVehicle.name}</Text>
+          <Text>
+            Selected Vehicle: {selectedVehicle.brand} {selectedVehicle.model}
+          </Text>
         </View>
       )}
     </View>
@@ -333,58 +317,44 @@ export function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // Alles uit jouw originele styles hier...
   container: { flex: 1 },
   map: { width: "100%", height: "100%" },
+  pinIcon: { width: 20, height: 30, resizeMode: "contain" },
   filterContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   filterBox: {
-    width: "80%",
+    width: "85%",
     backgroundColor: "white",
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 15,
   },
-  filterTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
+  filterTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   searchInput: {
-    height: 40,
-    borderColor: "gray",
+    borderColor: "#ccc",
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
+    padding: 8,
+    borderRadius: 8,
   },
-  suggestionsList: {
-    marginTop: 10,
-    maxHeight: 150,
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-  },
-  pinIcon: { width: 15, height: 25 },
-  openFilterButton: {
-    position: "absolute",
-    bottom: 610,
-    right: 20,
-    backgroundColor: "#001D3D",
-    padding: 10,
-    borderRadius: 50,
-  },
+  suggestionItem: { padding: 10 },
   closeFilterButton: {
     marginTop: 10,
     backgroundColor: "#EB6534",
     padding: 10,
     borderRadius: 5,
   },
-  closeButtonText: {
-    color: "white",
+  closeButtonText: { color: "white" },
+  openFilterButton: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    backgroundColor: "#001D3D",
+    padding: 10,
+    borderRadius: 30,
   },
   vehiclesButton: {
     position: "absolute",
@@ -394,31 +364,25 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 50,
   },
-  vehiclesButtonText: {
-    color: "white",
-  },
+  vehiclesButtonText: { color: "white" },
   eventModalContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   eventModalBox: {
-    width: "80%",
-    backgroundColor: "rgba(254, 254, 254, 0.98)",
+    backgroundColor: "white",
     padding: 20,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  eventModalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    borderRadius: 12,
+    width: "90%",
     marginTop: 10,
-    marginBottom: 10,
   },
+  eventModalTitle: { fontSize: 20, fontWeight: "bold" },
   eventImage: {
-    width: "80%",
-    height: 200,
+    width: "100%",
+    height: 180,
     borderRadius: 10,
+    resizeMode: "cover",
   },
   goToParkingButton: {
     marginTop: 10,
@@ -426,33 +390,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
   },
-  goToParkingText: {
-    color: "white",
-    fontSize: 16,
-  },
-  closeModalButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "transparent",
-    padding: 10,
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  vehiclesButton: {
-    position: "absolute",
-    bottom: 80,
-    left: 20,
-    backgroundColor: "#EB6534",
-    padding: 10,
-    borderRadius: 50,
-  },
-  vehiclesButtonText: {
-    color: "white",
-  },
+  goToParkingText: { color: "white", textAlign: "center" },
+  overlay: { flex: 1, justifyContent: "center", alignItems: "center" },
   selectedVehicleContainer: {
     position: "absolute",
     bottom: 150,
@@ -461,50 +400,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
   },
-
-  parkingTag: {
-    position: "absolute",
-    top: 130,
-    alignSelf: "center",
-    backgroundColor: "#EB6534",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    zIndex: 10,
-  },
-  parkingTagText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  locateButton: {
-    position: "absolute",
-    bottom: 160,
-    right: 20,
-    backgroundColor: "#001D3D",
-    padding: 12,
-    borderRadius: 100,
-    elevation: 5,
-  },
-
-  searchBarWrapper: {
-    position: "absolute",
-    bottom: 90,
-    left: 20,
-    right: 20,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 4,
-  },
-
   vehicleCard: {
     width: 160,
     height: 120,
@@ -514,29 +409,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F2F2F2",
     position: "relative",
   },
-  vehicleCardDefault: {
-    backgroundColor: "#F2F2F2",
-  },
-  vehicleCardSelected: {
-    backgroundColor: "#EB6534",
-  },
-  vehicleCardHeader: {
-    marginBottom: 6,
-  },
-  vehicleCardTitle: {
-    fontWeight: "bold",
-    fontSize: 15,
-    color: "#001D3D",
-  },
-  vehicleCardPlate: {
-    fontSize: 13,
-    color: "#888",
-  },
-  checkmark: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-  },
+  vehicleCardDefault: { backgroundColor: "#F2F2F2" },
+  vehicleCardSelected: { backgroundColor: "#EB6534" },
+  vehicleCardHeader: { marginBottom: 6 },
+  vehicleCardTitle: { fontWeight: "bold", fontSize: 15, color: "#001D3D" },
+  vehicleCardPlate: { fontSize: 13, color: "#888" },
+  checkmark: { position: "absolute", bottom: 10, right: 10 },
   addVehicleButton: {
     width: 50,
     height: 50,

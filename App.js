@@ -5,20 +5,21 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LogBox } from "react-native";
 
-// Import screens
+// Screens
 import HomeScreen from "./screens/HomeScreen";
 import EventScreen from "./screens/EventScreen";
 import TicketScreen from "./screens/TicketScreen";
 import MoreScreen from "./screens/MoreScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignUpScreen from "./screens/SignUpScreen";
+import WalkthroughScreen from "./screens/WalkthroughScreen";
 import EventDetailScreen from "./screens/EventDetailScreen";
 import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
-import WalkthroughScreen from "./screens/WalkthroughScreen";
+import AccountScreen from "./screens/AccountScreen"; // ✅ nieuwe screen
 
-// Import icons
+// Icons
 import {
   MaterialIcons,
   Ionicons,
@@ -39,8 +40,6 @@ export default function App() {
       const token = await AsyncStorage.getItem("userToken");
       if (token) {
         setIsLoggedIn(true);
-
-        // Voorbeeld: haal user data op uit AsyncStorage of API
         const userData = await AsyncStorage.getItem("userData");
         if (userData) {
           setUser(JSON.parse(userData));
@@ -64,7 +63,7 @@ export default function App() {
   );
 }
 
-// Auth stack: Login + Signup
+// Auth stack
 function AuthStack({ setIsLoggedIn }) {
   return (
     <Stack.Navigator>
@@ -99,47 +98,43 @@ function MainStack({ setIsLoggedIn, user }) {
         options={{
           headerShown: true,
           title: "",
-          headerStyle: { backgroundColor: "" },
-          headerTintColor: "#000000",
           headerBackTitleVisible: false,
         }}
       />
-
       <Stack.Screen
         name="CategoryEvent"
         options={{
           headerShown: true,
           title: "",
-          headerStyle: { backgroundColor: "" },
-          headerTintColor: "#000000",
           headerBackTitleVisible: false,
         }}
       >
         {(props) => <CategoryEventScreen {...props} user={user} />}
       </Stack.Screen>
-
       <Stack.Screen
         name="ParkingDetail"
         component={ParkingDetailScreen}
         options={{
           headerShown: true,
           title: "",
-          headerStyle: { backgroundColor: "" },
-          headerTintColor: "#000000",
           headerBackTitleVisible: false,
         }}
       />
-
       <Stack.Screen
         name="TicketDetail"
         component={TicketDetailScreen}
         options={{
           headerShown: true,
           title: "",
-          headerStyle: { backgroundColor: "" },
-          headerTintColor: "#000000",
           headerBackTitleVisible: false,
         }}
+      />
+
+      {/* ✅ Zorg dat 'Account' screen hier is toegevoegd */}
+      <Stack.Screen
+        name="Account"
+        component={AccountScreen}
+        options={{ headerShown: true, title: "Account" }}
       />
     </Stack.Navigator>
   );

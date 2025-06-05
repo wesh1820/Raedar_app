@@ -11,13 +11,13 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export function LoginScreen({ navigation, setIsLoggedIn }) {
-  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Vul zowel je e-mail als wachtwoord in.");
+    if (!phoneNumber || !password) {
+      Alert.alert("Error", "Vul zowel je telefoonnummer als wachtwoord in.");
       return;
     }
 
@@ -28,14 +28,14 @@ export function LoginScreen({ navigation, setIsLoggedIn }) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, action: "login" }),
+          body: JSON.stringify({ phoneNumber, password, action: "login" }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Login mislukt.");
+        throw new Error(data.error || "Login mislukt.");
       }
 
       // Token opslaan voor toekomstige API-aanvragen
@@ -61,10 +61,10 @@ export function LoginScreen({ navigation, setIsLoggedIn }) {
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
+        placeholder="Telefoonnummer"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+        keyboardType="phone-pad"
         autoCapitalize="none"
       />
       <TextInput

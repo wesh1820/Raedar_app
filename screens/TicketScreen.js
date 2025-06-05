@@ -9,50 +9,71 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 
-const TicketScreen = ({ navigation, route }) => {
+const TicketScreen = ({ navigation }) => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timers, setTimers] = useState({});
+  const [userToken, setUserToken] = useState(null);
+  const [userTel, setUserTel] = useState(null);
 
+  // Haal userToken én userTel op bij mount
   useEffect(() => {
-    const fetchTickets = async () => {
+    const fetchAuthData = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
+        const tel = await AsyncStorage.getItem("userTel");
+
+        setUserToken(token);
+        setUserTel(tel);
+
         if (!token) {
           setError("Geen token gevonden. Log opnieuw in.");
           setLoading(false);
           return;
         }
 
-        const response = await fetch(
-          "https://raedar-backend.onrender.com/api/tickets",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Fout bij ophalen tickets: ${response.statusText} (${response.status})`
-          );
-        }
-
-        const data = await response.json();
-        setTickets(data.tickets);
-        await initializeTimers(data.tickets);
-      } catch (err) {
-        setError(err.message);
-      } finally {
+        // Tickets ophalen met token
+        await fetchTickets(token, tel);
+      } catch (e) {
+        setError("Fout bij ophalen authenticatie data.");
         setLoading(false);
       }
     };
-
-    fetchTickets();
+    fetchAuthData();
   }, []);
+
+  // Tickets ophalen functie met token (en tel als parameter indien nodig)
+  const fetchTickets = async (token, tel) => {
+    try {
+      // Pas url aan als je userTel in query wilt meegeven, anders alleen token
+      const url =
+        "https://raedar-backend.onrender.com/api/tickets" +
+        (tel ? `?tel=${tel}` : "");
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Fout bij ophalen tickets: ${response.statusText} (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+
+      setTickets(data.tickets || []);
+      await initializeTimers(data.tickets || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Timer initialiseren vanuit AsyncStorage en tickets data
   const initializeTimers = async (ticketsList) => {
@@ -88,14 +109,14 @@ const TicketScreen = ({ navigation, route }) => {
     setTimers(timersMap);
   };
 
-  // Herlaad timers bij scherm focus (als je terugkomt van detail)
+  // Herlaad timers bij scherm focus
   useFocusEffect(
     useCallback(() => {
       initializeTimers(tickets);
     }, [tickets])
   );
 
-  // Timer loopt elke seconde door voor actieve timers
+  // Timer interval
   useEffect(() => {
     const interval = setInterval(() => {
       setTimers((prev) => {
@@ -133,7 +154,6 @@ const TicketScreen = ({ navigation, route }) => {
     return () => clearInterval(interval);
   }, [tickets]);
 
-  // Opslaan timerstatus in AsyncStorage
   const saveTimerStatus = async (id, running, startedAt) => {
     try {
       const storedTimers = await AsyncStorage.getItem("timers");
@@ -172,7 +192,7 @@ const TicketScreen = ({ navigation, route }) => {
   }
 
   if (error) {
-    return <Text>Fout: {error}</Text>;
+    return <Text style={{ color: "red" }}>Fout: {error}</Text>;
   }
 
   return (
@@ -307,10 +327,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   activateButton: {
-    marginTop: 8,
-    backgroundColor: "#001D3D",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    marginTop: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 15,
+    backgroundColor: "#EB6534",
     borderRadius: 5,
     alignSelf: "flex-start",
   },

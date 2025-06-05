@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 
 const MoreScreen = ({ setIsLoggedIn }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -16,7 +17,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
   const [pendingCancellation, setPendingCancellation] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
+  const navigation = useNavigation();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -37,10 +38,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
           }
         );
         const data = await response.json();
-        console.log("Fetched user data:", data);
-
         if (data) {
-          setUserEmail(data.email || "");
           setIsPremium(data.premium || false);
           setPendingCancellation(data.premiumCancelPending || false);
         }
@@ -76,10 +74,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
       const data = await response.json();
       setLoading(false);
       if (data.success) {
-        Alert.alert(
-          "Premium geactiveerd!",
-          "Je hebt nu toegang tot premium functies."
-        );
+        Alert.alert("Premium geactiveerd!");
         setIsPremium(true);
         setPendingCancellation(false);
       } else {
@@ -94,7 +89,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
   const handleCancelPremium = async () => {
     Alert.alert(
       "Premium opzeggen",
-      "Je blijft deze maand premium gebruiken, maar je abonnement wordt na deze maand stopgezet en je wordt niet meer gefactureerd.",
+      "Je blijft deze maand premium gebruiken, maar je abonnement wordt na deze maand stopgezet.",
       [
         { text: "Annuleer", style: "cancel" },
         {
@@ -115,10 +110,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
               const data = await response.json();
               setLoading(false);
               if (data.success) {
-                Alert.alert(
-                  "Premium geannuleerd",
-                  "Je premium abonnement wordt na deze maand stopgezet."
-                );
+                Alert.alert("Premium geannuleerd.");
                 setPendingCancellation(true);
               } else {
                 Alert.alert(
@@ -138,24 +130,25 @@ const MoreScreen = ({ setIsLoggedIn }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Account</Text>
+      <Text style={styles.sectionTitle}>Meer</Text>
 
-      {userEmail ? (
-        <Text style={styles.emailText}>E-mail: {userEmail}</Text>
-      ) : (
-        <Text style={styles.emailText}>Email wordt geladen...</Text>
-      )}
+      <TouchableOpacity
+        style={styles.row}
+        onPress={() => navigation.navigate("Account")}
+      >
+        <Text style={styles.label}>Bekijk Accountgegevens</Text>
+      </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>Preferences</Text>
+      <Text style={styles.sectionTitle}>Voorkeuren</Text>
       <View style={styles.row}>
-        <Text style={styles.label}>Enable Notifications</Text>
+        <Text style={styles.label}>Notificaties aan</Text>
         <Switch
           value={notificationsEnabled}
           onValueChange={setNotificationsEnabled}
         />
       </View>
 
-      <Text style={styles.sectionTitle}>App</Text>
+      <Text style={styles.sectionTitle}>Premium</Text>
 
       {loading && <ActivityIndicator size="small" color="#000" />}
 
@@ -179,17 +172,19 @@ const MoreScreen = ({ setIsLoggedIn }) => {
       {!loading && isPremium && pendingCancellation && (
         <View style={[styles.row, styles.pendingCancelRow]}>
           <Text style={[styles.label, styles.pendingCancelLabel]}>
-            Premium opgezegd - loopt nog tot het einde van de maand
+            Premium opgezegd - loopt nog tot einde van de maand
           </Text>
         </View>
       )}
 
       <TouchableOpacity style={styles.row} onPress={handleLogout}>
-        <Text style={[styles.label, { color: "red" }]}>Logout</Text>
+        <Text style={[styles.label, { color: "red" }]}>Uitloggen</Text>
       </TouchableOpacity>
     </View>
   );
 };
+
+export default MoreScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -204,11 +199,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
     color: "#333",
-  },
-  emailText: {
-    fontSize: 16,
-    color: "#000",
-    marginBottom: 15,
   },
   row: {
     flexDirection: "row",
@@ -237,5 +227,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-
-export default MoreScreen;
