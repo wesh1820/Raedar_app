@@ -40,7 +40,7 @@ const VehicleCard = ({ vehicle, selected, onPress }) => (
   </TouchableOpacity>
 );
 
-export function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [eventsData, setEventsData] = useState([]);
@@ -50,11 +50,14 @@ export function HomeScreen({ navigation }) {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [isPremium, setIsPremium] = useState(false); // Premium status
+  const [vehicles, setVehicles] = useState([]); // vehicles from server
 
-  const vehicles = [
-    { id: 1, brand: "Audi", model: "Q3", year: 2021, plate: "B 1234 CD" },
-    { id: 2, brand: "BMW", model: "X2", year: 2021, plate: "B 5632 DM" },
-  ];
+  // States voor nieuw voertuig toevoegen
+  const [addingVehicle, setAddingVehicle] = useState(false);
+  const [newBrand, setNewBrand] = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [newYear, setNewYear] = useState("");
+  const [newPlate, setNewPlate] = useState("");
 
   const [region, setRegion] = useState({
     latitude: 50.8503,
@@ -65,11 +68,9 @@ export function HomeScreen({ navigation }) {
 
   // Simuleer premium status ophalen
   useEffect(() => {
-    // TODO: vervang dit met jouw echte logic (API/localstorage/etc)
     const fetchPremiumStatus = async () => {
-      // Simulatie: na 1 sec premium true zetten (of false)
       setTimeout(() => {
-        setIsPremium(true); // Zet hier op false om premium uit te zetten
+        setIsPremium(true);
       }, 1000);
     };
     fetchPremiumStatus();
@@ -101,7 +102,19 @@ export function HomeScreen({ navigation }) {
       }
     };
 
+    const fetchVehicles = async () => {
+      try {
+        const response = await axios.get(
+          "https://raedar-backend.onrender.com/api/vehicle"
+        );
+        setVehicles(response.data);
+      } catch (error) {
+        console.error("❌ Error fetching vehicles:", error);
+      }
+    };
+
     fetchEvents();
+    fetchVehicles();
   }, []);
 
   const debouncedSearch = debounce((text) => {
@@ -295,38 +308,124 @@ export function HomeScreen({ navigation }) {
       {vehiclesModalVisible && (
         <Modal visible={true} animationType="fade" transparent={true}>
           <View style={styles.filterContainer}>
-            <View style={[styles.filterBox, { height: 250 }]}>
-              <Text style={styles.filterTitle}>Select your vehicle</Text>
-              <FlatList
-                horizontal
-                data={vehicles}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ gap: 10 }}
-                renderItem={({ item }) => (
-                  <VehicleCard
-                    vehicle={item}
-                    selected={selectedVehicle?.id === item.id}
-                    onPress={() => handleVehicleSelect(item)}
+            <View
+              style={[styles.filterBox, { height: addingVehicle ? 360 : 250 }]}
+            >
+              <Text style={styles.filterTitle}>
+                {addingVehicle ? "Add new vehicle" : "Select your vehicle"}
+              </Text>
+
+              {addingVehicle ? (
+                <View style={{ marginTop: 10 }}>
+                  <TextInput
+                    placeholder="Merk"
+                    value={newBrand}
+                    onChangeText={setNewBrand}
+                    style={styles.input}
                   />
-                )}
-              />
-              <TouchableOpacity
-                style={styles.addVehicleButton}
-                onPress={() => console.log("Add new vehicle")}
-              >
-                <Icon name="plus" size={20} color="#001D3D" />
-              </TouchableOpacity>
+                  <TextInput
+                    placeholder="Model"
+                    value={newModel}
+                    onChangeText={setNewModel}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Bouwjaar"
+                    value={newYear}
+                    onChangeText={setNewYear}
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Kenteken"
+                    value={newPlate}
+                    onChangeText={setNewPlate}
+                    style={styles.input}
+                  />
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginTop: 10,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setAddingVehicle(false)}
+                      style={[
+                        styles.button,
+                        { backgroundColor: "#ccc", flex: 1, marginRight: 10 },
+                      ]}
+                    >
+                      <Text style={{ textAlign: "center" }}>Annuleer</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (!newBrand || !newModel || !newYear || !newPlate) {
+                          alert("Vul alle velden in.");
+                          return;
+                        }
+                        const newVehicle = {
+                          id: Date.now().toString(),
+                          brand: newBrand,
+                          model: newModel,
+                          year: newYear,
+                          plate: newPlate,
+                        };
+                        setVehicles((prev) => [newVehicle, ...prev]);
+                        setAddingVehicle(false);
+                        setNewBrand("");
+                        setNewModel("");
+                        setNewYear("");
+                        setNewPlate("");
+                      }}
+                      style={[
+                        styles.button,
+                        { backgroundColor: "#EB6534", flex: 1 },
+                      ]}
+                    >
+                      <Text style={{ color: "white", textAlign: "center" }}>
+                        Toevoegen
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <FlatList
+                    horizontal
+                    data={vehicles}
+                    keyExtractor={(item) => item.id.toString()}
+                    contentContainerStyle={{ gap: 10 }}
+                    renderItem={({ item }) => (
+                      <VehicleCard
+                        vehicle={item}
+                        selected={selectedVehicle?.id === item.id}
+                        onPress={() => handleVehicleSelect(item)}
+                      />
+                    )}
+                  />
+                  <TouchableOpacity
+                    style={styles.addVehicleButton}
+                    onPress={() => setAddingVehicle(true)}
+                  >
+                    <Icon name="plus" size={20} color="#001D3D" />
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {!addingVehicle && (
+                <TouchableOpacity
+                  onPress={() => setVehiclesModalVisible(false)}
+                  style={styles.closeModalButton}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </Modal>
-      )}
-
-      {selectedVehicle && (
-        <View style={styles.selectedVehicleContainer}>
-          <Text>
-            Selected Vehicle: {selectedVehicle.brand} {selectedVehicle.model}
-          </Text>
-        </View>
       )}
     </View>
   );
@@ -455,5 +554,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#001D3D",
   },
 });
-
-export default HomeScreen;

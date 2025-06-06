@@ -6,13 +6,13 @@ import {
   Alert,
   StyleSheet,
   Image,
+  Linking,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome5";
 import * as Location from "expo-location";
-import { Linking } from "react-native";
 
 const ParkingDetailScreen = ({ route, navigation }) => {
   const { event, parking } = route.params;
@@ -20,7 +20,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [showTimer, setShowTimer] = useState(false);
+  const [showTimer, setShowTimer] = useState(true); // <-- Timer altijd zichtbaar
 
   const destinationLat = parseFloat(
     parking.latitude?.$numberDouble || parking.latitude
@@ -73,16 +73,16 @@ const ParkingDetailScreen = ({ route, navigation }) => {
   const createTicketAndGoToPayment = async () => {
     if (totalDurationInMinutes <= 0) {
       Alert.alert("Ongeldige tijd", "Selecteer eerst een geldig tijdslot.");
-      setShowTimer(true);
       return;
     }
     if (!userToken) {
       Alert.alert("Error", "Je moet ingelogd zijn om een ticket te maken.");
       return;
     }
+
     const newTicket = {
       type: `${parking.location}`,
-      price: Number(totalPrice.toFixed(2)), // dit maakt er een number van met 2 decimalen
+      price: Number(totalPrice.toFixed(2)),
       availability: 1,
       duration: totalDurationInMinutes,
       parkingName: parking.name,
@@ -100,7 +100,6 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
       if (response.status >= 200 && response.status < 300) {
         const ticketData = response.data.ticket;
-        // Navigeer naar PaymentScreen met ticket data
         navigation.navigate("PaymentScreen", { ticket: ticketData });
       } else {
         Alert.alert("Error", "Failed to create ticket. Try again.");
@@ -256,7 +255,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         style={styles.bookButton}
         onPress={createTicketAndGoToPayment}
       >
-        <Text style={styles.bookText}>Book Parking</Text>
+        <Text style={styles.bookText}>Next</Text>
       </TouchableOpacity>
     </View>
   );
