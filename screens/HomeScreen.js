@@ -49,15 +49,16 @@ export default function HomeScreen({ navigation }) {
   const [vehiclesModalVisible, setVehiclesModalVisible] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const [isPremium, setIsPremium] = useState(false); // Premium status
-  const [vehicles, setVehicles] = useState([]); // vehicles from server
+  const [isPremium, setIsPremium] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
 
-  // States voor nieuw voertuig toevoegen
   const [addingVehicle, setAddingVehicle] = useState(false);
   const [newBrand, setNewBrand] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newYear, setNewYear] = useState("");
   const [newPlate, setNewPlate] = useState("");
+
+  const [carpoolAdVisible, setCarpoolAdVisible] = useState(false);
 
   const [region, setRegion] = useState({
     latitude: 50.8503,
@@ -66,14 +67,14 @@ export default function HomeScreen({ navigation }) {
     longitudeDelta: 0.3,
   });
 
-  // Simuleer premium status ophalen
   useEffect(() => {
-    const fetchPremiumStatus = async () => {
-      setTimeout(() => {
-        setIsPremium(true);
-      }, 1000);
-    };
-    fetchPremiumStatus();
+    setTimeout(() => {
+      setIsPremium(true);
+    }, 1000);
+
+    setTimeout(() => {
+      setCarpoolAdVisible(true);
+    }, 5000);
   }, []);
 
   useEffect(() => {
@@ -168,7 +169,6 @@ export default function HomeScreen({ navigation }) {
           .flatMap((item) => item.events)
           .map((event, index) => (
             <React.Fragment key={`event-${index}`}>
-              {/* Altijd event markers tonen */}
               <Marker
                 coordinate={{
                   latitude: event.latitude,
@@ -182,7 +182,6 @@ export default function HomeScreen({ navigation }) {
                 />
               </Marker>
 
-              {/* Parkings alleen tonen als premium */}
               {isPremium &&
                 event.parkings &&
                 event.parkings.map((parking, pIndex) => (
@@ -204,6 +203,31 @@ export default function HomeScreen({ navigation }) {
             </React.Fragment>
           ))}
       </MapView>
+
+      {/* CARPOOL AD */}
+      <Modal visible={carpoolAdVisible} animationType="fade" transparent={true}>
+        <View style={styles.carpoolAdOverlay}>
+          <View style={styles.carpoolAdBox}>
+            <Image
+              source={require("../assets/carpool.png")}
+              style={styles.carpoolImage}
+            />
+            <Text style={styles.carpoolAdTitle}>🌍 Denk aan het milieu!</Text>
+            <Text style={styles.carpoolAdText}>
+              Carpool naar evenementen en help CO₂-uitstoot verminderen. Samen
+              maken we het verschil!
+            </Text>
+            <TouchableOpacity
+              onPress={() => setCarpoolAdVisible(false)}
+              style={styles.carpoolAdCloseButton}
+            >
+              <Text style={{ color: "white", textAlign: "center" }}>
+                Sluiten
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Filter modal */}
       {filterVisible && (
@@ -552,5 +576,38 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: "#001D3D",
+  },
+  carpoolAdBox: {
+    backgroundColor: "white",
+    padding: 25,
+    borderRadius: 15,
+    width: "80%",
+    alignItems: "center",
+    top: "50%",
+    left: "10%",
+  },
+  carpoolAdTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#001D3D",
+  },
+  carpoolAdText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  carpoolAdCloseButton: {
+    backgroundColor: "#EB6534",
+    padding: 10,
+    borderRadius: 8,
+    width: "100%",
+  },
+  carpoolImage: {
+    width: 270,
+    height: 200,
+    resizeMode: "cover",
+    borderRadius: 10,
+    marginBottom: 15,
   },
 });
