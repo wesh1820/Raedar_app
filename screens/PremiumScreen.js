@@ -5,82 +5,91 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   ScrollView,
   Modal,
 } from "react-native";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const PremiumScreen = () => {
   const [loading, setLoading] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [pendingCancellation, setPendingCancellation] = useState(false);
+  const [premiumEndDate, setPremiumEndDate] = useState(null);
   const [token, setToken] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Haal user data op en check premium verloop
-  const fetchUserData = async () => {
-    setLoading(true);
-    const userToken = await AsyncStorage.getItem("userToken");
-    if (!userToken) {
-      setIsPremium(false);
-      setPendingCancellation(false);
-      setToken(null);
-      setLoading(false);
-      return;
-    }
-    setToken(userToken);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoading(true);
+      const userToken = await AsyncStorage.getItem("userToken");
+      if (!userToken) return;
 
-    try {
-      const response = await fetch(
-        "https://raedar-backend.onrender.com/api/users",
-        {
-          headers: {
-            Authorization: `Bearer ${userToken}`,
-          },
-        }
-      );
-      const data = await response.json();
+      setToken(userToken);
 
-      if (data) {
-        const now = new Date();
+      try {
+        const res = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: { Authorization: `Bearer ${userToken}` },
+          }
+        );
+        const data = await res.json();
         const expireDate = data.premiumEndDate
           ? new Date(data.premiumEndDate)
           : null;
+        const now = new Date();
 
-        console.log("User data:", data);
-        console.log("Now:", now);
-        console.log("Expire date:", expireDate);
-        console.log("Premium flag:", data.premium);
+        if (data.premium && expireDate && expireDate > now) setIsPremium(true);
+        else setIsPremium(false);
 
-        // Check of premium geldig is en nog niet verlopen
-        if (data.premium && expireDate && expireDate > now) {
-          setIsPremium(true);
-        } else {
-          setIsPremium(false);
-        }
-
+        setPremiumEndDate(expireDate);
         setPendingCancellation(data.premiumCancelPending || false);
+      } catch (err) {
+        console.log("❌ Error:", err);
       }
-    } catch (err) {
-      console.log("Error fetching user info:", err);
-    }
-    setLoading(false);
-  };
+      setLoading(false);
+    };
 
-  useEffect(() => {
     fetchUserData();
   }, []);
 
-  // Functie om premium te kopen (maand/jaar)
+  const cancelPremium = async () => {
+    Alert.alert("Premium opzeggen", "Weet je het zeker?", [
+      { text: "Annuleer", style: "cancel" },
+      {
+        text: "Bevestig",
+        onPress: async () => {
+          setLoading(true);
+          try {
+            const res = await fetch(
+              "https://raedar-backend.onrender.com/api/users/premium/cancel",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const data = await res.json();
+            if (data.success) {
+              Alert.alert("Premium geannuleerd.");
+              setPendingCancellation(true);
+            }
+          } catch {
+            Alert.alert("Fout", "Probeer later opnieuw.");
+          }
+          setLoading(false);
+        },
+      },
+    ]);
+  };
+
   const purchasePremium = async (type) => {
-    // type: 'month' of 'year'
     setShowModal(false);
     setLoading(true);
-
     try {
-      const response = await fetch(
+      const res = await fetch(
         "https://raedar-backend.onrender.com/api/users/premium",
         {
           method: "POST",
@@ -88,18 +97,25 @@ const PremiumScreen = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ premiumType: type }), // backend verwacht 'premiumType'
+          body: JSON.stringify({ premiumType: type }),
         }
       );
-      const data = await response.json();
+      const data = await res.json();
       setLoading(false);
       if (data.success) {
         Alert.alert(
           "Succes",
-          `Premium geactiveerd (${type === "month" ? "maand" : "jaar"})!`
+          `Premium geactiveerd (${
+            type === "month" ? "€4,99 per maand" : "€49,99 per jaar"
+          })!`
         );
-        // Na succes vernieuw data om juiste expireDate te krijgen
-        fetchUserData();
+        setIsPremium(true);
+        setPendingCancellation(false);
+        setPremiumEndDate(
+          type === "month"
+            ? new Date(new Date().setMonth(new Date().getMonth() + 1))
+            : new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+        );
       } else {
         Alert.alert("Fout", data.error || "Kon premium niet activeren.");
       }
@@ -109,136 +125,77 @@ const PremiumScreen = () => {
     }
   };
 
-  // Premium annuleren
-  const handleCancelPremium = async () => {
-    Alert.alert(
-      "Premium opzeggen",
-      "Je blijft deze maand premium gebruiken, maar je abonnement wordt na deze maand stopgezet.",
-      [
-        { text: "Annuleer", style: "cancel" },
-        {
-          text: "Bevestig",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const response = await fetch(
-                "https://raedar-backend.onrender.com/api/users/premium/cancel",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-              const data = await response.json();
-              setLoading(false);
-              if (data.success) {
-                Alert.alert("Premium geannuleerd.");
-                fetchUserData(); // update status
-              } else {
-                Alert.alert(
-                  "Fout",
-                  data.error || "Kon premium niet annuleren."
-                );
-              }
-            } catch (error) {
-              setLoading(false);
-              Alert.alert("Fout", "Er is een probleem met de server.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
-      <Text style={styles.title}>✨ Premium Account ✨</Text>
-
-      <Text style={styles.description}>
-        Met een premium account krijg je toegang tot:
-      </Text>
-      <View style={styles.benefits}>
-        <Text style={styles.benefit}>• Geen advertenties 🚫</Text>
-        <Text style={styles.benefit}>
-          • Toegang tot exclusieve features ⭐️
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.logoText}>
+          Rae<Text style={styles.orange}>dar</Text>
         </Text>
-        <Text style={styles.benefit}>• Snellere ondersteuning ⚡️</Text>
-        <Text style={styles.benefit}>• En nog veel meer...</Text>
+        <Text style={styles.premiumText}>PREMIUM ★</Text>
       </View>
 
-      {loading && (
-        <ActivityIndicator
-          size="large"
-          color="#6a1b9a"
-          style={{ marginVertical: 20 }}
-        />
+      <View style={styles.cardContainer}>
+        <Text style={styles.sectionTitle}>Voordelen</Text>
+        <Text style={styles.bullet}>• Geen advertenties 🚫</Text>
+        <Text style={styles.bullet}>• Exclusieve functies ⭐️</Text>
+        <Text style={styles.bullet}>• Snelle ondersteuning ⚡️</Text>
+        <Text style={styles.bullet}>• Gratis parking notificaties 🔔</Text>
+      </View>
+
+      {isPremium && (
+        <Text style={styles.paymentLabel}>
+          Actief tot:{" "}
+          {premiumEndDate
+            ? new Date(premiumEndDate).toLocaleDateString()
+            : "Onbekend"}
+        </Text>
       )}
 
-      {!loading && !isPremium && (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => setShowModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.buttonText}>Koop Premium</Text>
-        </TouchableOpacity>
-      )}
-
-      {!loading && isPremium && !pendingCancellation && (
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={handleCancelPremium}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.buttonText}>Zet Premium uit</Text>
-        </TouchableOpacity>
-      )}
-
-      {!loading && isPremium && pendingCancellation && (
-        <View style={styles.pendingContainer}>
-          <Text style={styles.pendingText}>
-            Premium opgezegd - loopt nog tot einde van de maand.
+      {isPremium && pendingCancellation && (
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeText}>
+            Premium geannuleerd – actief tot{" "}
+            {premiumEndDate
+              ? new Date(premiumEndDate).toLocaleDateString()
+              : "einde van de maand"}
+            .
           </Text>
         </View>
       )}
 
-      {/* Modal voor keuze maand of jaar */}
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowModal(false)}
-      >
+      {isPremium && !pendingCancellation && (
+        <TouchableOpacity style={styles.cancelButton} onPress={cancelPremium}>
+          <Text style={styles.cancelText}>Annuleer Premium</Text>
+        </TouchableOpacity>
+      )}
+
+      {!isPremium && (
+        <TouchableOpacity
+          style={styles.subscribeButton}
+          onPress={() => setShowModal(true)}
+        >
+          <Text style={styles.cancelText}>Word Premium</Text>
+        </TouchableOpacity>
+      )}
+
+      <Modal visible={showModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Kies een abonnement</Text>
-
+            <Text style={styles.modalTitle}>Kies je plan</Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => purchasePremium("month")}
             >
               <Text style={styles.modalButtonText}>€4,99 per maand</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => purchasePremium("year")}
             >
-              <Text style={styles.modalButtonText}>€48,99 per jaar</Text>
+              <Text style={styles.modalButtonText}>€49,99 per jaar</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setShowModal(false)}
-              style={[styles.modalButton, styles.modalCancelButton]}
-            >
-              <Text style={[styles.modalButtonText, { color: "#EB6534" }]}>
-                Annuleer
-              </Text>
+            <TouchableOpacity onPress={() => setShowModal(false)}>
+              <Text style={styles.modalCancel}>Annuleer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -250,122 +207,121 @@ const PremiumScreen = () => {
 export default PremiumScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f6f1f8",
-    paddingHorizontal: 25,
-    paddingTop: 50,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "900",
-    marginBottom: 25,
-    color: "#001D3D",
-    textAlign: "center",
-    textShadowColor: "#001D3D",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-  },
-  description: {
-    fontSize: 18,
-    marginBottom: 20,
-    color: "#4a4a4a",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  benefits: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 30,
-    shadowColor: "#6a1b9a",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  benefit: {
-    fontSize: 17,
-    marginVertical: 6,
-    color: "#333",
-    fontWeight: "500",
-  },
-  button: {
+  container: { flex: 1, backgroundColor: "#fff" },
+  header: {
     backgroundColor: "#001D3D",
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingTop: 60,
+    paddingBottom: 30,
     alignItems: "center",
-    shadowColor: "#EB6534",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+  },
+  logoText: { fontSize: 36, fontWeight: "900", color: "white" },
+  orange: { color: "#EB6534" },
+  premiumText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 6,
+  },
+  cardContainer: {
+    backgroundColor: "#F1F5F9",
     marginHorizontal: 20,
+    marginTop: 30,
+    borderRadius: 20,
+    padding: 20,
   },
-  cancelButton: {
-    backgroundColor: "#EB6534",
-    shadowColor: "#d9534f",
-  },
-  buttonText: {
-    color: "#ffffff",
+  sectionTitle: {
+    fontWeight: "bold",
     fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: 1,
+    color: "#001D3D",
+    marginBottom: 12,
   },
-  pendingContainer: {
-    marginTop: 10,
-    backgroundColor: "#fce5e3",
+  bullet: {
+    fontSize: 16,
+    color: "#4B5563",
+    marginVertical: 4,
+  },
+  paymentLabel: {
+    marginTop: 30,
+    marginLeft: 24,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#001D3D",
+  },
+  totalBox: {
+    marginTop: 20,
+    marginHorizontal: 20,
+    backgroundColor: "#F1F5F9",
+    padding: 20,
+    borderTopWidth: 4,
+    borderTopColor: "#EB6534",
+    borderRadius: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  totalLabel: { color: "#4B5563", fontSize: 18 },
+  totalAmount: { color: "#001D3D", fontSize: 22, fontWeight: "bold" },
+  cancelButton: {
+    backgroundColor: "#001D3D",
+    marginTop: 30,
+    marginHorizontal: 20,
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  subscribeButton: {
+    backgroundColor: "#EB6534",
+    marginTop: 30,
+    marginHorizontal: 20,
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  cancelText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  noticeBox: {
+    marginTop: 20,
+    backgroundColor: "#FFF3CD",
     padding: 16,
-    borderRadius: 14,
+    borderRadius: 10,
     marginHorizontal: 20,
   },
-  pendingText: {
-    color: "#d9534f",
-    fontWeight: "700",
-    fontSize: 17,
+  noticeText: {
+    color: "#856404",
+    fontSize: 15,
     textAlign: "center",
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: "white",
-    borderRadius: 20,
+    backgroundColor: "#fff",
     padding: 25,
-    width: "100%",
-    maxWidth: 320,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 12,
+    borderRadius: 16,
+    width: "90%",
+    alignItems: "center",
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 25,
-    textAlign: "center",
+    fontSize: 20,
+    fontWeight: "bold",
     color: "#001D3D",
+    marginBottom: 20,
   },
   modalButton: {
     backgroundColor: "#001D3D",
-    borderRadius: 25,
-    paddingVertical: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
     marginVertical: 8,
-    alignItems: "center",
   },
-  modalCancelButton: {
-    backgroundColor: "#f4f4f4",
-    borderWidth: 1,
-    borderColor: "#EB6534",
-  },
-  modalButtonText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 17,
+  modalButtonText: { color: "#fff", fontSize: 16 },
+  modalCancel: {
+    color: "#EB6534",
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });

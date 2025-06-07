@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,256 +6,225 @@ import {
   Alert,
   StyleSheet,
   Image,
-  ScrollView,
+  Animated,
+  Switch,
 } from "react-native";
-
-const paymentMethods = [
-  {
-    id: "bancontact",
-    name: "Bancontact",
-    logo: require("../assets/bancontact.png"), // Voeg eigen logo toe in assets
-  },
-  {
-    id: "mastercard",
-    name: "MasterCard",
-    logo: require("../assets/mastercard.png"),
-  },
-  {
-    id: "payconiq",
-    name: "Payconiq",
-    logo: require("../assets/payconiq.png"),
-  },
-];
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import * as Notifications from "expo-notifications";
 
 const PaymentScreen = ({ route, navigation }) => {
   const { ticket } = route.params || {};
+  const [vehicle, setVehicle] = useState(null);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  useEffect(() => {
+    const loadVehicle = async () => {
+      const userId = await AsyncStorage.getItem("userId");
+      const res = await axios.get(
+        "https://raedar-backend.onrender.com/api/vehicles"
+      );
+      const userVehicle = res.data.find((v) => v.userId === userId);
+      setVehicle(userVehicle);
+    };
+
+    loadVehicle();
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const scheduleNotification = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Toegang geweigerd", "Notificaties zijn uitgeschakeld.");
+      return;
+    }
+
+    if (ticket.date) {
+      const eventDate = new Date(ticket.date);
+      eventDate.setHours(9);
+      eventDate.setMinutes(0);
+      eventDate.setSeconds(0);
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Reminder voor je event 🎉",
+          body: `Vandaag is het zover! Vergeet je parkeerbewijs niet.`,
+        },
+        trigger: eventDate,
+      });
+    }
+  };
+
+  const handlePay = async () => {
+    if (reminderEnabled) {
+      await scheduleNotification();
+    }
+
+    Alert.alert("Succes", "Betaling bevestigd!");
+    navigation.navigate("Main", { screen: "Tickets" });
+  };
 
   if (!ticket) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>Geen ticketgegevens gevonden.</Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Ga terug</Text>
-        </TouchableOpacity>
+        <Text style={styles.errorText}>Geen ticket gevonden.</Text>
       </View>
     );
   }
 
-  const price =
-    typeof ticket.price === "number"
-      ? ticket.price
-      : parseFloat(ticket.price) || 0;
-
-  const [selectedMethod, setSelectedMethod] = useState(null);
-  const [isPaying, setIsPaying] = useState(false);
-
-  const handlePayment = () => {
-    if (!selectedMethod) {
-      Alert.alert(
-        "Kies een betaalmethode",
-        "Selecteer eerst een betaalmethode."
-      );
-      return;
-    }
-    setIsPaying(true);
-    setTimeout(() => {
-      setIsPaying(false);
-      Alert.alert("Succes", "Betaling voltooid!");
-      navigation.navigate("Main", { screen: "Tickets" });
-    }, 2000);
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Betaling voor je ticket</Text>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Text style={styles.title}>Order detail</Text>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.label}>Parking:</Text>
-        <Text style={styles.value}>
-          {ticket.parkingName || ticket.type || "Onbekend"}
-        </Text>
+      <View style={styles.block}>
+        <Text style={styles.blockLabel}>DURATION</Text>
+        <Text style={styles.blockValue}>{ticket.duration} min</Text>
       </View>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.label}>Duur:</Text>
-        <Text style={styles.value}>{ticket.duration || 0} minuten</Text>
-      </View>
+      {vehicle && (
+        <View style={styles.ticketCard}>
+          <Text style={styles.sectionLabel}>VEHICLE</Text>
+          <Text style={styles.sectionValue}>
+            {vehicle.year} {vehicle.brand} {vehicle.model} • {vehicle.plate}
+          </Text>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.label}>Prijs:</Text>
-        <Text style={styles.priceValue}>€{price.toFixed(2)}</Text>
-      </View>
+          <Text style={[styles.sectionLabel, { marginTop: 16 }]}>
+            PARKING LOT
+          </Text>
+          <Text style={styles.sectionValue}>{ticket.type}</Text>
 
-      <Text style={styles.selectTitle}>Kies je betaalmethode</Text>
+          <Text style={[styles.slotInfo]}>Slot A01</Text>
 
-      <View style={styles.methodsContainer}>
-        {paymentMethods.map((method) => (
-          <TouchableOpacity
-            key={method.id}
-            style={[
-              styles.methodButton,
-              selectedMethod === method.id && styles.methodButtonSelected,
-            ]}
-            onPress={() => setSelectedMethod(method.id)}
-            activeOpacity={0.8}
-          >
-            <Image
-              source={method.logo}
-              style={styles.methodLogo}
-              resizeMode="contain"
-            />
-            <Text
-              style={[
-                styles.methodText,
-                selectedMethod === method.id && styles.methodTextSelected,
-              ]}
-            >
-              {method.name}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalText}>TOTAL</Text>
+            <Text style={styles.totalPrice}>
+              €{parseFloat(ticket.price).toFixed(2)}
             </Text>
-          </TouchableOpacity>
-        ))}
+          </View>
+        </View>
+      )}
+
+      <View style={styles.reminderBox}>
+        <Text style={styles.reminderLabel}>Reminder ontvangen</Text>
+        <Switch
+          value={reminderEnabled}
+          onValueChange={setReminderEnabled}
+          trackColor={{ false: "#ccc", true: "#EB6534" }}
+          thumbColor={reminderEnabled ? "#001D3D" : "#888"}
+        />
       </View>
 
-      <TouchableOpacity
-        style={[styles.payButton, isPaying && styles.disabledButton]}
-        onPress={handlePayment}
-        disabled={isPaying}
-      >
-        <Text style={styles.payButtonText}>
-          {isPaying ? "Betalen..." : "Betalen"}
-        </Text>
+      <TouchableOpacity style={styles.payButton} onPress={handlePay}>
+        <Text style={styles.payText}>Confirm & Pay</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    flex: 1,
     backgroundColor: "#f9faff",
-    flexGrow: 1,
+    padding: 24,
     justifyContent: "flex-start",
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#001D3D",
+    marginBottom: 30,
+  },
+  block: {
+    marginBottom: 25,
+  },
+  blockLabel: {
+    fontWeight: "bold",
+    color: "#001D3D",
+    fontSize: 16,
+  },
+  blockValue: {
+    color: "#62718E",
+    fontSize: 18,
+    marginTop: 6,
+  },
+  ticketCard: {
+    backgroundColor: "#f0f4f8",
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 30,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    color: "#62718E",
+    fontWeight: "bold",
+  },
+  sectionValue: {
+    fontSize: 18,
+    color: "#001D3D",
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  slotInfo: {
+    fontSize: 16,
+    color: "#EB6534",
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
+    borderTopWidth: 2,
+    borderTopColor: "#EB6534",
+    paddingTop: 16,
+  },
+  totalText: {
+    color: "#62718E",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  totalPrice: {
+    color: "#001D3D",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  payButton: {
+    backgroundColor: "#001D3D",
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  payText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#fff",
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 24,
-    color: "#001D3D",
-    textAlign: "center",
-  },
-  infoBox: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 18,
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  label: {
-    fontSize: 18,
-    color: "#555",
-    fontWeight: "600",
-  },
-  value: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1B263B",
-  },
-  priceValue: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#EB6534",
-  },
-  selectTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginVertical: 20,
-    color: "#001D3D",
-    alignSelf: "center",
-  },
-  methodsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 30,
-  },
-  methodButton: {
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    width: 110,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  methodButtonSelected: {
-    borderColor: "#EB6534",
-    backgroundColor: "#FFF4E6",
-  },
-  methodLogo: {
-    width: 50,
-    height: 30,
-    marginBottom: 10,
-  },
-  methodText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#555",
-  },
-  methodTextSelected: {
-    color: "#EB6534",
-  },
-  payButton: {
-    backgroundColor: "#001D3D",
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  disabledButton: {
-    backgroundColor: "#999",
-  },
-  payButtonText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
   },
   errorText: {
     fontSize: 16,
     color: "red",
-    textAlign: "center",
-    marginBottom: 20,
   },
-  backButton: {
-    backgroundColor: "#001D3D",
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 10,
+  reminderBox: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 30,
+    paddingHorizontal: 10,
   },
-  backButtonText: {
-    color: "white",
-    fontWeight: "600",
+  reminderLabel: {
     fontSize: 16,
+    fontWeight: "600",
+    color: "#001D3D",
   },
 });
 

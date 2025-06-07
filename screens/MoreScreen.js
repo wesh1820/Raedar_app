@@ -1,268 +1,116 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Switch,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
+  Image,
   Alert,
-  ActivityIndicator,
 } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 
 const MoreScreen = ({ setIsLoggedIn }) => {
   const navigation = useNavigation();
-
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [notificationSound, setNotificationSound] = useState(true);
-  const [notificationBadge, setNotificationBadge] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [language, setLanguage] = useState("nl");
-  const [isPremium, setIsPremium] = useState(false);
-  const [pendingCancellation, setPendingCancellation] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const [openPreferences, setOpenPreferences] = useState(false);
-  const [openPremium, setOpenPremium] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const fetchUserData = async () => {
       try {
-        const [
-          notifications,
-          sound,
-          badge,
-          dark,
-          lang,
-          premium,
-          cancelPending,
-        ] = await Promise.all([
-          AsyncStorage.getItem("notificationsEnabled"),
-          AsyncStorage.getItem("notificationSound"),
-          AsyncStorage.getItem("notificationBadge"),
-          AsyncStorage.getItem("darkMode"),
-          AsyncStorage.getItem("language"),
-          AsyncStorage.getItem("isPremium"),
-          AsyncStorage.getItem("pendingCancellation"),
-        ]);
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) return;
 
-        if (notifications !== null)
-          setNotificationsEnabled(notifications === "true");
-        if (sound !== null) setNotificationSound(sound === "true");
-        if (badge !== null) setNotificationBadge(badge === "true");
-        if (dark !== null) setDarkMode(dark === "true");
-        if (lang !== null) setLanguage(lang);
-        if (premium !== null) setIsPremium(premium === "true");
-        if (cancelPending !== null)
-          setPendingCancellation(cancelPending === "true");
+        const response = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Kon gebruikersgegevens niet ophalen.");
+        }
+
+        setUser(data);
       } catch (error) {
-        console.error("Failed to load settings:", error);
+        console.error("❌ Fout bij ophalen user:", error);
+        Alert.alert("Fout", "Kon gebruikersinformatie niet ophalen.");
       }
     };
 
-    loadSettings();
+    fetchUserData();
   }, []);
 
-  const updateSetting = async (key, value, setter) => {
-    setter(value);
-    try {
-      await AsyncStorage.setItem(key, value.toString());
-    } catch (error) {
-      console.error(`Failed to save ${key}:`, error);
-    }
-  };
-
-  const togglePreferences = useCallback(
-    () => setOpenPreferences((prev) => !prev),
-    []
-  );
-  const togglePremium = useCallback(() => setOpenPremium((prev) => !prev), []);
-
-  const toggleDarkMode = async (val) => {
-    await updateSetting("darkMode", val, setDarkMode);
-    Alert.alert(
-      "Opmerking",
-      "Donkere modus zal toegepast worden na opnieuw starten."
-    );
-  };
-
-  const toggleLanguage = async () => {
-    const newLang = language === "nl" ? "en" : "nl";
-    await updateSetting("language", newLang, setLanguage);
-    Alert.alert(
-      "Language Changed",
-      `Taal gewijzigd naar ${newLang === "nl" ? "Nederlands" : "English"}.`
-    );
-  };
-
   const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem("userToken");
-      setIsLoggedIn(false);
-    } catch (error) {
-      Alert.alert("Fout", "Uitloggen mislukt, probeer het opnieuw.");
-    }
+    await AsyncStorage.removeItem("userToken");
+    await AsyncStorage.removeItem("userId");
+    setIsLoggedIn(false);
   };
 
   return (
-    <View style={[styles.container, darkMode && styles.containerDark]}>
-      <View style={styles.content}>
-        <Text style={[styles.sectionTitle, darkMode && styles.textDark]}>
-          Settings
-        </Text>
-
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => navigation.navigate("Account")}
-          accessibilityRole="button"
-          accessibilityLabel="Bekijk accountgegevens"
-        >
-          <Text style={[styles.label, darkMode && styles.textDark]}>
-            Bekijk Accountgegevens
-          </Text>
-        </TouchableOpacity>
-
-        {/* Accordion: Voorkeuren */}
-        <TouchableOpacity
-          style={styles.row}
-          onPress={togglePreferences}
-          accessibilityRole="button"
-          accessibilityLabel={`Voorkeuren sectie ${
-            openPreferences ? "open" : "gesloten"
-          }`}
-        >
-          <Text style={[styles.sectionTitle, darkMode && styles.textDark]}>
-            Voorkeuren {openPreferences ? "▲" : "▼"}
-          </Text>
-        </TouchableOpacity>
-
-        {openPreferences && (
-          <>
-            <View style={styles.row}>
-              <Text style={[styles.label, darkMode && styles.textDark]}>
-                Notificaties aan
-              </Text>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={(val) =>
-                  updateSetting(
-                    "notificationsEnabled",
-                    val,
-                    setNotificationsEnabled
-                  )
-                }
-              />
-            </View>
-
-            <View style={styles.row}>
-              <Text style={[styles.label, darkMode && styles.textDark]}>
-                Notificatie geluid
-              </Text>
-              <Switch
-                value={notificationSound}
-                onValueChange={(val) =>
-                  updateSetting("notificationSound", val, setNotificationSound)
-                }
-              />
-            </View>
-
-            <View style={styles.row}>
-              <Text style={[styles.label, darkMode && styles.textDark]}>
-                Notificatie badge
-              </Text>
-              <Switch
-                value={notificationBadge}
-                onValueChange={(val) =>
-                  updateSetting("notificationBadge", val, setNotificationBadge)
-                }
-              />
-            </View>
-
-            <View style={styles.row}>
-              <Text style={[styles.label, darkMode && styles.textDark]}>
-                Donkere modus
-              </Text>
-              <Switch value={darkMode} onValueChange={toggleDarkMode} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.row}
-              onPress={toggleLanguage}
-              accessibilityRole="button"
-              accessibilityLabel="Taal wijzigen"
-            >
-              <Text style={[styles.label, darkMode && styles.textDark]}>
-                Taal: {language === "nl" ? "Nederlands" : "English"}
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Accordion: Premium */}
-        <TouchableOpacity
-          style={styles.row}
-          onPress={togglePremium}
-          accessibilityRole="button"
-          accessibilityLabel={`Premium sectie ${
-            openPremium ? "open" : "gesloten"
-          }`}
-        >
-          <Text style={[styles.sectionTitle, darkMode && styles.textDark]}>
-            Premium {openPremium ? "▲" : "▼"}
-          </Text>
-        </TouchableOpacity>
-
-        {openPremium && (
-          <>
-            {loading && (
-              <ActivityIndicator
-                size="small"
-                color={darkMode ? "#fff" : "#000"}
-              />
-            )}
-
-            <TouchableOpacity
-              style={[styles.row, isPremium ? styles.premiumRow : null]}
-              onPress={() => navigation.navigate("Premium")}
-              accessibilityRole="button"
-              accessibilityLabel={isPremium ? "Beheer Premium" : "Koop Premium"}
-            >
-              <Text
-                style={[styles.label, isPremium ? styles.premiumLabel : null]}
-              >
-                {isPremium ? "Beheer Premium" : "Koop Premium"}
-              </Text>
-            </TouchableOpacity>
-
-            {isPremium && pendingCancellation && (
-              <View style={[styles.row, styles.pendingCancelRow]}>
-                <Text style={[styles.label, styles.pendingCancelLabel]}>
-                  Premium opgezegd - loopt nog tot einde van de maand
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-
-        <View style={{ marginTop: 30, alignItems: "center" }}>
-          <Text style={[styles.versionText, darkMode && styles.textDark]}>
-            Versie 1.0.0
+    <View style={styles.container}>
+      {/* Profile Header (Clickable) */}
+      <TouchableOpacity
+        style={styles.profileContainer}
+        onPress={() => navigation.navigate("Account")}
+      >
+        <Image
+          source={{
+            uri:
+              user?.avatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                user?.username || "User"
+              )}`,
+          }}
+          style={styles.profileImage}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.profileName}>{user?.username || "Laden..."}</Text>
+          <Text style={styles.profileLocation}>
+            {user?.phoneNumber || "Geen telefoonnummer"}
           </Text>
         </View>
-      </View>
+        <Icon name="settings" size={24} color="#001D3D" />
+      </TouchableOpacity>
 
-      {/* Uitlogknop iets boven onderkant met marge */}
-      <View style={styles.logoutContainer}>
+      {/* Menu Items */}
+      <View style={styles.menuContainer}>
         <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          accessibilityRole="button"
-          accessibilityLabel="Uitloggen"
+          style={styles.menuItem}
+          onPress={() => navigation.navigate("Premium")}
         >
-          <Text style={styles.logoutText}>Uitloggen</Text>
+          <Text style={styles.menuText}>
+            <Text style={styles.orange}>Raedar</Text> Premium
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>My vehicles</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Accessibility</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Payment</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Support</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Logout */}
+      <TouchableOpacity style={styles.logoutContainer} onPress={handleLogout}>
+        <Icon name="log-out" size={22} color="#EB6534" />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -272,70 +120,60 @@ export default MoreScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    marginTop: 50,
+    backgroundColor: "#FAFAFA",
+    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingVertical: 10,
   },
-  containerDark: {
-    backgroundColor: "#1B263B",
-  },
-  content: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-    color: "#1B263B",
-  },
-  textDark: {
-    color: "#F0F4F8",
-  },
-  row: {
+  profileContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    backgroundColor: "#F2F4F7",
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 16,
-    color: "#1B263B",
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
   },
-  premiumRow: {
-    backgroundColor: "#dff0d8",
+  profileName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#001D3D",
   },
-  premiumLabel: {
-    color: "green",
+  profileLocation: {
+    color: "#4B5563",
+    fontSize: 15,
+    marginTop: 4,
+  },
+  menuContainer: {
+    marginTop: 10,
+  },
+  menuItem: {
+    paddingVertical: 18,
+  },
+  menuText: {
+    fontSize: 18,
+    color: "#001D3D",
     fontWeight: "bold",
   },
-  pendingCancelRow: {
-    backgroundColor: "#fff3cd",
-  },
-  pendingCancelLabel: {
-    color: "#856404",
+  orange: {
+    color: "#EB6534",
     fontWeight: "bold",
-  },
-  versionText: {
-    color: "#5D6A77",
   },
   logoutContainer: {
-    paddingVertical: 15,
-    paddingBottom: 30, // ruimte onder de knop
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "transparent",
-  },
-  logoutButton: {
-    // Optioneel: extra styling voor knop, nu alleen touchable area
+    position: "absolute",
+    bottom: 40,
+    left: 20,
   },
   logoutText: {
-    fontSize: 16,
-    color: "red",
+    color: "#EB6534",
+    fontSize: 18,
     fontWeight: "bold",
+    marginLeft: 10,
   },
 });

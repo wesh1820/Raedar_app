@@ -10,7 +10,6 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-
 const slides = [
   {
     key: "1",
@@ -21,7 +20,8 @@ const slides = [
   {
     key: "2",
     title: "Book & Park",
-    description: "Enjoy comfortable and spacious parking spaces for your vehicle.",
+    description:
+      "Enjoy comfortable and spacious parking spaces for your vehicle.",
     image: require("../assets/Walk2.png"),
   },
   {
@@ -37,40 +37,44 @@ export default function WalkthroughScreen({ setIsLoggedIn }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const handleNext = async () => {
     if (currentIndex < slides.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
     } else {
-      await AsyncStorage.setItem("userToken", "dummy_token");
-      setIsLoggedIn(true); // activeert de MainStack in App.js
+      await AsyncStorage.setItem("hasSeenWalkthrough", "true");
+      setIsLoggedIn(true); // pas nu de MainStack in
     }
   };
-  
 
   return (
     <View style={styles.container}>
-    <View style={styles.top}>
-      <Text style={styles.logo}></Text>
-      <Text style={styles.title}>{slides[currentIndex].title}</Text>
-      <Text style={styles.description}>{slides[currentIndex].description}</Text>
-    </View>
-  
-    <Image source={slides[currentIndex].image} style={styles.image} resizeMode="contain" />
-  
-    <View style={styles.footer}>
-      <View style={styles.dots}>
-        {slides.map((_, index) => (
-          <View
-            key={index}
-            style={[styles.dot, currentIndex === index && styles.activeDot]}
-          />
-        ))}
+      <View style={styles.top}>
+        <Text style={styles.logo}></Text>
+        <Text style={styles.title}>{slides[currentIndex].title}</Text>
+        <Text style={styles.description}>
+          {slides[currentIndex].description}
+        </Text>
       </View>
-  
-      <TouchableOpacity style={styles.button} onPress={handleNext}>
-        <Text style={styles.buttonText}>Next</Text>
-      </TouchableOpacity>
+
+      <Image
+        source={slides[currentIndex].image}
+        style={styles.image}
+        resizeMode="contain"
+      />
+
+      <View style={styles.footer}>
+        <View style={styles.dots}>
+          {slides.map((_, index) => (
+            <View
+              key={index}
+              style={[styles.dot, currentIndex === index && styles.activeDot]}
+            />
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.button} onPress={handleNext}>
+          <Text style={styles.buttonText}>Next</Text>
+        </TouchableOpacity>
+      </View>
     </View>
-  </View>
-  
   );
 }
 
@@ -105,7 +109,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 280,
+    height: 380,
     alignSelf: "center",
   },
   footer: {

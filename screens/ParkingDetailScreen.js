@@ -20,7 +20,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [showTimer, setShowTimer] = useState(true); // <-- Timer altijd zichtbaar
+  const [showTimer, setShowTimer] = useState(true);
 
   const destinationLat = parseFloat(
     parking.latitude?.$numberDouble || parking.latitude
@@ -60,13 +60,13 @@ const ParkingDetailScreen = ({ route, navigation }) => {
     const minutesNotTruncated = (absolute - degrees) * 60;
     const minutes = Math.floor(minutesNotTruncated);
     const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
-
-    let direction = "";
-    if (isLat) {
-      direction = decimal >= 0 ? "N" : "S";
-    } else {
-      direction = decimal >= 0 ? "E" : "W";
-    }
+    let direction = isLat
+      ? decimal >= 0
+        ? "N"
+        : "S"
+      : decimal >= 0
+      ? "E"
+      : "W";
     return `${degrees}°${minutes}'${seconds}"${direction}`;
   }
 
@@ -87,6 +87,8 @@ const ParkingDetailScreen = ({ route, navigation }) => {
       duration: totalDurationInMinutes,
       parkingName: parking.name,
       location: parking.location,
+      latitude: parking.latitude, // ✅ toegevoegd
+      longitude: parking.longitude, // ✅ toegevoegd
     };
 
     try {
@@ -135,19 +137,8 @@ const ParkingDetailScreen = ({ route, navigation }) => {
       const currentLat = location.coords.latitude;
       const currentLng = location.coords.longitude;
 
-      const currentLatDMS = decimalToDMS(currentLat, true);
-      const currentLngDMS = decimalToDMS(currentLng, false);
-      const destLatDMS = decimalToDMS(destinationLat, true);
-      const destLngDMS = decimalToDMS(destinationLng, false);
-
       const url = `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${destinationLat},${destinationLng}&travelmode=driving`;
-
       Linking.openURL(url);
-
-      Alert.alert(
-        "Navigatie gestart",
-        `Huidige locatie: ${currentLatDMS} ${currentLngDMS}\nBestemming: ${destLatDMS} ${destLngDMS}`
-      );
     } catch (error) {
       console.error("Fout bij ophalen van locatie:", error);
       Alert.alert("Fout", "Locatie ophalen mislukt");

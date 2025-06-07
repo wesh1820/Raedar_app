@@ -14,6 +14,7 @@ import * as Location from "expo-location";
 import axios from "axios";
 import { debounce } from "lodash";
 import Icon from "react-native-vector-icons/FontAwesome";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const VehicleCard = ({ vehicle, selected, onPress }) => (
   <TouchableOpacity
@@ -105,10 +106,16 @@ export default function HomeScreen({ navigation }) {
 
     const fetchVehicles = async () => {
       try {
+        const storedUserId = await AsyncStorage.getItem("userId");
+        if (!storedUserId) return;
+
         const response = await axios.get(
-          "https://raedar-backend.onrender.com/api/vehicle"
+          "https://raedar-backend.onrender.com/api/vehicles"
         );
-        setVehicles(response.data);
+        const userVehicles = response.data.filter(
+          (v) => v.userId === storedUserId
+        );
+        setVehicles(userVehicles);
       } catch (error) {
         console.error("❌ Error fetching vehicles:", error);
       }
@@ -149,14 +156,47 @@ export default function HomeScreen({ navigation }) {
     setSelectedVehicle(vehicle);
     setVehiclesModalVisible(false);
   };
+  const handleAddVehicle = async () => {
+    if (!newBrand || !newModel || !newYear || !newPlate) {
+      alert("Vul alle velden in.");
+      return;
+    }
+
+    try {
+      const userId = await AsyncStorage.getItem("userId");
+      if (!userId) {
+        alert("Gebruiker niet gevonden.");
+        return;
+      }
+
+      const response = await axios.post(
+        "https://raedar-backend.onrender.com/api/vehicles",
+        {
+          brand: newBrand,
+          model: newModel,
+          year: newYear,
+          plate: newPlate,
+          userId: userId,
+        }
+      );
+
+      const savedVehicle = response.data;
+
+      setVehicles((prev) => [savedVehicle, ...prev]);
+      setAddingVehicle(false);
+      setNewBrand("");
+      setNewModel("");
+      setNewYear("");
+      setNewPlate("");
+    } catch (error) {
+      console.error("❌ Fout bij toevoegen voertuig:", error);
+      alert("Voertuig toevoegen is mislukt.");
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        region={region}
-        onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
-      >
+      <MapView style={styles.map} initialRegion={region}>
         {userLocation && (
           <Marker coordinate={userLocation}>
             <View style={styles.locationDotOuter}>
@@ -182,7 +222,7 @@ export default function HomeScreen({ navigation }) {
                 />
               </Marker>
 
-              {isPremium &&
+              {/* {isPremium &&
                 event.parkings &&
                 event.parkings.map((parking, pIndex) => (
                   <Marker
@@ -199,7 +239,7 @@ export default function HomeScreen({ navigation }) {
                       style={styles.pinIcon}
                     />
                   </Marker>
-                ))}
+                ))} */}
             </React.Fragment>
           ))}
       </MapView>
@@ -228,6 +268,97 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+      {/* VEHICLE MODAL */}
+      {vehiclesModalVisible && (
+        <Modal visible={true} animationType="fade" transparent={true}>
+          <View style={styles.filterContainer}>
+            <View
+              style={[styles.filterBox, { height: addingVehicle ? 360 : 250 }]}
+            >
+              <Text style={styles.filterTitle}>
+                {addingVehicle ? "Add new vehicle" : "Select your vehicle"}
+              </Text>
+
+              {addingVehicle ? (
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    placeholder="Merk"
+                    value={newBrand}
+                    onChangeText={setNewBrand}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Model"
+                    value={newModel}
+                    onChangeText={setNewModel}
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Bouwjaar"
+                    value={newYear}
+                    onChangeText={setNewYear}
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                  <TextInput
+                    placeholder="Kenteken"
+                    value={newPlate}
+                    onChangeText={setNewPlate}
+                    style={styles.input}
+                  />
+
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      onPress={() => setAddingVehicle(false)}
+                      style={[styles.button, styles.cancelButton]}
+                    >
+                      <Text style={styles.cancelButtonText}>Annuleren</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleAddVehicle}
+                      style={[styles.button, styles.addButton]}
+                    >
+                      <Text style={styles.addButtonText}>Toevoegen</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <FlatList
+                    horizontal
+                    data={vehicles}
+                    keyExtractor={(item) => item._id || item.id}
+                    contentContainerStyle={{ gap: 10 }}
+                    renderItem={({ item }) => (
+                      <VehicleCard
+                        vehicle={item}
+                        selected={selectedVehicle?.plate === item.plate}
+                        onPress={() => handleVehicleSelect(item)}
+                      />
+                    )}
+                  />
+                  <TouchableOpacity
+                    style={styles.addVehicleButton}
+                    onPress={() => setAddingVehicle(true)}
+                  >
+                    <Icon name="plus" size={20} color="#001D3D" />
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {!addingVehicle && (
+                <TouchableOpacity
+                  onPress={() => setVehiclesModalVisible(false)}
+                  style={styles.closeModalButton}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* Filter modal */}
       {filterVisible && (
@@ -322,10 +453,13 @@ export default function HomeScreen({ navigation }) {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.vehiclesButton}
+        style={styles.vehicleButton}
         onPress={() => setVehiclesModalVisible(true)}
       >
-        <Text style={styles.vehiclesButtonText}>Voertuigen</Text>
+        <Image
+          source={require("../assets/vehicle.png")}
+          style={styles.vehicleIcon}
+        />
       </TouchableOpacity>
 
       {/* Vehicle modal */}
@@ -340,78 +474,50 @@ export default function HomeScreen({ navigation }) {
               </Text>
 
               {addingVehicle ? (
-                <View style={{ marginTop: 10 }}>
+                <View style={styles.inputContainer}>
                   <TextInput
-                    placeholder="Merk"
+                    placeholder="Bijv. Mercedes"
+                    placeholderTextColor="#999"
                     value={newBrand}
                     onChangeText={setNewBrand}
                     style={styles.input}
                   />
                   <TextInput
-                    placeholder="Model"
+                    placeholder="Bijv. A-Klasse"
+                    placeholderTextColor="#999"
                     value={newModel}
                     onChangeText={setNewModel}
                     style={styles.input}
                   />
                   <TextInput
-                    placeholder="Bouwjaar"
+                    placeholder="Bijv. 2021"
+                    placeholderTextColor="#999"
                     value={newYear}
                     onChangeText={setNewYear}
                     keyboardType="numeric"
                     style={styles.input}
                   />
                   <TextInput
-                    placeholder="Kenteken"
+                    placeholder="Bijv. 1-ABC-123"
+                    placeholderTextColor="#999"
                     value={newPlate}
                     onChangeText={setNewPlate}
                     style={styles.input}
                   />
 
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      marginTop: 10,
-                    }}
-                  >
+                  <View style={styles.buttonRow}>
                     <TouchableOpacity
                       onPress={() => setAddingVehicle(false)}
-                      style={[
-                        styles.button,
-                        { backgroundColor: "#ccc", flex: 1, marginRight: 10 },
-                      ]}
+                      style={[styles.button, styles.cancelButton]}
                     >
-                      <Text style={{ textAlign: "center" }}>Annuleer</Text>
+                      <Text style={styles.cancelButtonText}>Annuleren</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => {
-                        if (!newBrand || !newModel || !newYear || !newPlate) {
-                          alert("Vul alle velden in.");
-                          return;
-                        }
-                        const newVehicle = {
-                          id: Date.now().toString(),
-                          brand: newBrand,
-                          model: newModel,
-                          year: newYear,
-                          plate: newPlate,
-                        };
-                        setVehicles((prev) => [newVehicle, ...prev]);
-                        setAddingVehicle(false);
-                        setNewBrand("");
-                        setNewModel("");
-                        setNewYear("");
-                        setNewPlate("");
-                      }}
-                      style={[
-                        styles.button,
-                        { backgroundColor: "#EB6534", flex: 1 },
-                      ]}
+                      onPress={handleAddVehicle}
+                      style={[styles.button, styles.addButton]}
                     >
-                      <Text style={{ color: "white", textAlign: "center" }}>
-                        Toevoegen
-                      </Text>
+                      <Text style={styles.addButtonText}>Toevoegen</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -420,7 +526,9 @@ export default function HomeScreen({ navigation }) {
                   <FlatList
                     horizontal
                     data={vehicles}
-                    keyExtractor={(item) => item.id.toString()}
+                    keyExtractor={(item, index) =>
+                      (item._id || item.id || index).toString()
+                    }
                     contentContainerStyle={{ gap: 10 }}
                     renderItem={({ item }) => (
                       <VehicleCard
@@ -579,7 +687,7 @@ const styles = StyleSheet.create({
   },
   carpoolAdBox: {
     backgroundColor: "white",
-    padding: 25,
+    padding: 15,
     borderRadius: 15,
     width: "80%",
     alignItems: "center",
@@ -609,5 +717,74 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     borderRadius: 10,
     marginBottom: 15,
+  },
+  inputContainer: {
+    gap: 10,
+    marginTop: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F9F9F9",
+    fontSize: 15,
+    color: "#333",
+    marginBottom: 8,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 15,
+  },
+  button: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#ccc",
+    flex: 1,
+    marginRight: 10,
+  },
+  addButton: {
+    backgroundColor: "#EB6534",
+    flex: 1,
+  },
+  addButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  cancelButtonText: {
+    color: "#333",
+  },
+  vehicleButton: {
+    position: "absolute", // DIT IS BELANGRIJK!
+    bottom: 40,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    shadowColor: "#001D3D",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    zIndex: 99, // Zorgt dat hij bovenaan blijft
+  },
+
+  vehicleIcon: {
+    width: 60,
+    height: 60,
+    marginRight: 12,
+    resizeMode: "contain",
+  },
+  vehicleText: {
+    fontSize: 16,
+    color: "#001D3D",
+    fontWeight: "600",
   },
 });

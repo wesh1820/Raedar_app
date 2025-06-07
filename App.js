@@ -36,6 +36,7 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -50,9 +51,15 @@ export default function App() {
         setIsLoggedIn(false);
         setUser(null);
       }
+      setLoading(false); // klaar met checken
     };
     checkLoginStatus();
   }, []);
+
+  if (loading) {
+    // Optioneel: hier kan je een splashscreen tonen of gewoon null returnen
+    return null;
+  }
 
   return (
     <NavigationContainer>

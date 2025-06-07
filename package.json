@@ -40,7 +40,8 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-wheel-picker": "^1.2.0",
     "react-navigation": "^5.0.0",
-    "undefined": "..."
+    "undefined": "...",
+    "expo-notifications": "~0.31.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

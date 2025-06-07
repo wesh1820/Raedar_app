@@ -1,51 +1,39 @@
 import React, { useState } from "react";
 import {
   View,
-  TextInput,
-  Button,
   Text,
+  TextInput,
+  TouchableOpacity,
   StyleSheet,
   Image,
-  Alert,
+  ImageBackground,
 } from "react-native";
+import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export function LoginScreen({ navigation, setIsLoggedIn }) {
+export default function LoginScreen({ navigation, setIsLoggedIn }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [secureText, setSecureText] = useState(true);
 
   const handleLogin = async () => {
-    if (!phoneNumber || !password) {
-      Alert.alert("Error", "Vul zowel je telefoonnummer als wachtwoord in.");
-      return;
-    }
-
+    if (!phoneNumber || !password) return;
     setLoading(true);
     try {
-      const response = await fetch(
-        "https://raedar-backend.onrender.com/api/users",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneNumber, password, action: "login" }),
-        }
-      );
+      const res = await fetch("https://raedar-backend.onrender.com/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, password, action: "login" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Login mislukt");
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login mislukt.");
-      }
-
-      // Token opslaan voor toekomstige API-aanvragen
       await AsyncStorage.setItem("userToken", data.token);
-
-      Alert.alert("Succes", "Je bent ingelogd!");
+      await AsyncStorage.setItem("userId", data.user._id);
       setIsLoggedIn(true);
-      navigation.navigate("Main"); // Navigate to Main
-    } catch (error) {
-      Alert.alert("Login mislukt", error.message);
+    } catch (e) {
+      alert(e.message);
     } finally {
       setLoading(false);
     }
@@ -53,74 +41,145 @@ export function LoginScreen({ navigation, setIsLoggedIn }) {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/RaedarLogo.png")}
-        style={styles.image}
-      />
-      <Text style={styles.header}>Login</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Telefoonnummer"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Wachtwoord"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Button
-        title={loading ? "Even wachten..." : "Login"}
-        onPress={handleLogin}
-        disabled={loading}
-      />
-
-      <Text
-        style={styles.signUpText}
-        onPress={() => navigation.navigate("SignUp")} // Navigate to the SignUp screen
+      <ImageBackground
+        source={require("../assets/wall.png")}
+        style={styles.topContainer}
+        resizeMode="cover"
       >
-        Nog geen account? Registreer hier.
-      </Text>
+        <Image
+          source={require("../assets/RaedarLogo2.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </ImageBackground>
+
+      <View style={styles.bottomContainer}>
+        <Text style={styles.title}>Login</Text>
+
+        <View style={styles.inputWrapper}>
+          <Icon name="phone" size={20} color="#667085" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="+32 412 34 56 78"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+          />
+        </View>
+
+        <View style={styles.inputWrapper}>
+          <Icon name="lock" size={20} color="#667085" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            secureTextEntry={secureText}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity onPress={() => setSecureText(!secureText)}>
+            <Icon
+              name={secureText ? "eye-slash" : "eye"}
+              size={20}
+              color="#667085"
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.forgotPassword}>
+          <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, loading && { opacity: 0.6 }]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>Login</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.signupPrompt}>
+          No account yet?{" "}
+          <Text
+            style={styles.signupLink}
+            onPress={() => navigation.navigate("SignUp")}
+          >
+            Sign up
+          </Text>
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: "#001D3D" },
+  topContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f0f0f0",
+    paddingTop: 60,
+    width: "100%",
+    height: 350,
   },
-  image: {
+  logo: {
     width: 300,
-    height: 66,
-    marginBottom: 60,
+    height: 60,
   },
-  header: {
+  bottomContainer: {
+    flex: 2,
+    backgroundColor: "#F9FAFB",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 30,
+  },
+  title: {
     fontSize: 24,
     fontWeight: "bold",
+    color: "#001D3D",
     marginBottom: 20,
+    textAlign: "center",
   },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  icon: { marginRight: 8 },
   input: {
-    width: "100%",
-    height: 50,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingLeft: 10,
-    marginBottom: 15,
+    flex: 1,
+    fontSize: 16,
+    color: "#001D3D",
   },
-  signUpText: {
-    marginTop: 15,
-    color: "#007BFF",
+  forgotPassword: { alignSelf: "flex-end", marginBottom: 30 },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: "#667085",
+    fontWeight: "500",
+  },
+  button: {
+    backgroundColor: "#001D3D",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  signupPrompt: {
+    marginTop: 20,
+    fontSize: 15,
+    color: "#667085",
+    textAlign: "center",
+  },
+  signupLink: {
+    color: "#001D3D",
+    fontWeight: "600",
   },
 });
-
-export default LoginScreen;

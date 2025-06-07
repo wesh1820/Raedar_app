@@ -17,7 +17,6 @@ const TicketScreen = ({ navigation }) => {
   const [userToken, setUserToken] = useState(null);
   const [userTel, setUserTel] = useState(null);
 
-  // Haal userToken én userTel op bij mount
   useEffect(() => {
     const fetchAuthData = async () => {
       try {
@@ -33,7 +32,6 @@ const TicketScreen = ({ navigation }) => {
           return;
         }
 
-        // Tickets ophalen met token
         await fetchTickets(token, tel);
       } catch (e) {
         setError("Fout bij ophalen authenticatie data.");
@@ -43,10 +41,8 @@ const TicketScreen = ({ navigation }) => {
     fetchAuthData();
   }, []);
 
-  // Tickets ophalen functie met token (en tel als parameter indien nodig)
   const fetchTickets = async (token, tel) => {
     try {
-      // Pas url aan als je userTel in query wilt meegeven, anders alleen token
       const url =
         "https://raedar-backend.onrender.com/api/tickets" +
         (tel ? `?tel=${tel}` : "");
@@ -65,7 +61,6 @@ const TicketScreen = ({ navigation }) => {
       }
 
       const data = await response.json();
-
       setTickets(data.tickets || []);
       await initializeTimers(data.tickets || []);
     } catch (err) {
@@ -75,7 +70,6 @@ const TicketScreen = ({ navigation }) => {
     }
   };
 
-  // Timer initialiseren vanuit AsyncStorage en tickets data
   const initializeTimers = async (ticketsList) => {
     const now = new Date();
     const timersMap = {};
@@ -109,14 +103,12 @@ const TicketScreen = ({ navigation }) => {
     setTimers(timersMap);
   };
 
-  // Herlaad timers bij scherm focus
   useFocusEffect(
     useCallback(() => {
       initializeTimers(tickets);
     }, [tickets])
   );
 
-  // Timer interval
   useEffect(() => {
     const interval = setInterval(() => {
       setTimers((prev) => {
@@ -187,13 +179,8 @@ const TicketScreen = ({ navigation }) => {
     return date.toLocaleDateString(undefined, options);
   };
 
-  if (loading) {
-    return <Text>Bezig met laden...</Text>;
-  }
-
-  if (error) {
-    return <Text style={{ color: "red" }}>Fout: {error}</Text>;
-  }
+  if (loading) return <Text>Bezig met laden...</Text>;
+  if (error) return <Text style={{ color: "red" }}>Fout: {error}</Text>;
 
   return (
     <View style={styles.container}>
@@ -204,7 +191,6 @@ const TicketScreen = ({ navigation }) => {
       ) : (
         <>
           <Text style={styles.sectionTitle}>Actieve Tickets</Text>
-
           <FlatList
             data={tickets}
             keyExtractor={(item) => item._id}
@@ -218,7 +204,11 @@ const TicketScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={styles.ticketContainer}
                   onPress={() =>
-                    navigation.navigate("TicketDetail", { ticket: item })
+                    navigation.navigate("TicketDetail", {
+                      ticket: item,
+                      latitude: item.latitude,
+                      longitude: item.longitude,
+                    })
                   }
                 >
                   <View style={styles.orangeBar} />
@@ -233,7 +223,11 @@ const TicketScreen = ({ navigation }) => {
                       <TouchableOpacity
                         style={styles.activateButton}
                         onPress={() =>
-                          navigation.navigate("TicketDetail", { ticket: item })
+                          navigation.navigate("TicketDetail", {
+                            ticket: item,
+                            latitude: item.latitude,
+                            longitude: item.longitude,
+                          })
                         }
                       >
                         <Text style={styles.buttonText}>Scan QR Code</Text>
@@ -256,7 +250,6 @@ const TicketScreen = ({ navigation }) => {
               );
             }}
           />
-
           <Text style={styles.sectionFooter}>Verlopen Tickets</Text>
         </>
       )}
@@ -265,11 +258,7 @@ const TicketScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 0,
-    marginTop: 100,
-  },
+  container: { flex: 1, padding: 0, marginTop: 100 },
   sectionTitle: {
     fontSize: 22,
     fontWeight: "bold",
@@ -300,20 +289,9 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     marginRight: 15,
   },
-  ticketContent: {
-    flex: 1,
-    padding: 10,
-  },
-  ticketName: {
-    fontSize: 16,
-    color: "#000000",
-    fontWeight: "bold",
-  },
-  ticketDate: {
-    fontSize: 14,
-    color: "#5D6F83",
-    marginTop: 5,
-  },
+  ticketContent: { flex: 1, padding: 10 },
+  ticketName: { fontSize: 16, color: "#000", fontWeight: "bold" },
+  ticketDate: { fontSize: 14, color: "#5D6F83", marginTop: 5 },
   countdown: {
     fontSize: 14,
     color: "#EB6534",
@@ -334,9 +312,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignSelf: "flex-start",
   },
-  buttonText: {
-    color: "white",
-  },
+  buttonText: { color: "white" },
 });
 
 export default TicketScreen;

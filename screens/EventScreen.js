@@ -202,7 +202,7 @@ export function EventScreen() {
   const openEvent = (event) => {
     const isFilterActive = Object.values(filters).some((v) => v === true);
     if (isFilterActive) {
-      navigation.navigate("ParkingDetail", { event });
+      navigation.navigate("ParkingDetail", { parking: event }); // ✅ niet { event }
     } else {
       navigation.navigate("EventDetailScreen", { event });
     }
