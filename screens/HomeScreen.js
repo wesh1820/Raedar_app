@@ -115,15 +115,14 @@ export default function HomeScreen({ navigation }) {
     fetchPremiumStatus();
   }, []);
 
-  // voertuigen ophalen
   useEffect(() => {
-    if (!storedUserId) return;
-
     const fetchVehicles = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
-        if (!token) {
-          console.warn("Geen token gevonden, kan voertuigen niet ophalen");
+        const userId = await AsyncStorage.getItem("userId");
+
+        if (!token || !userId) {
+          console.warn("Geen token of userId gevonden.");
           return;
         }
 
@@ -136,17 +135,15 @@ export default function HomeScreen({ navigation }) {
           }
         );
 
-        const userVehicles = response.data.filter(
-          (v) => v.userId === storedUserId
-        );
+        const userVehicles = response.data.filter((v) => v.userId === userId);
         setVehicles(userVehicles);
-      } catch (err) {
-        console.error("Error fetching vehicles:", err);
+      } catch (error) {
+        console.error("Fout bij ophalen voertuigen:", error);
       }
     };
 
     fetchVehicles();
-  }, [storedUserId]);
+  }, []);
 
   // locatie + events ophalen
   useEffect(() => {
@@ -184,6 +181,35 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   // voertuig toevoegen
+  const centerToUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        alert("Locatietoegang geweigerd.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      setRegion(newRegion);
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (error) {
+      console.error("Locatie ophalen mislukt:", error);
+    }
+  };
+
   const handleAddVehicle = async () => {
     if (!newBrand || !newModel || !newYear || !newPlate) {
       alert("Please fill in all fields.");
@@ -207,14 +233,25 @@ export default function HomeScreen({ navigation }) {
         setStoredUserId(userId);
       }
 
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        alert("Token not found.");
+        return;
+      }
+
       const response = await axios.post(
         "https://raedar-backend.onrender.com/api/vehicles",
         {
-          brand: newBrand,
-          model: newModel,
-          year: newYear,
-          plate: newPlate.toUpperCase(),
+          brand: newBrand.trim(),
+          model: newModel.trim(),
+          year: Number(newYear.trim()),
+          plate: newPlate.toUpperCase().trim(),
           userId: userId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
@@ -578,6 +615,12 @@ export default function HomeScreen({ navigation }) {
           style={styles.vehicleIcon}
         />
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={centerToUserLocation}
+      >
+        <Icon name="crosshairs" size={25} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -840,5 +883,29 @@ const styles = StyleSheet.create({
   adButtonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  locationButton: {
+    position: "absolute",
+    bottom: 47,
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30, // perfect circle
+    backgroundColor: "#EB6534",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    zIndex: 99,
+  },
+
+  locationIcon: {
+    width: 30,
+    height: 30,
+    tintColor: "#fff", // als je PNG zwart is, deze behouden
+    resizeMode: "contain",
   },
 });

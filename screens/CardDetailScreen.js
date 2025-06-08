@@ -1,6 +1,4 @@
-// CardDetailScreen.js
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,87 +6,234 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
-export default function CardDetailScreen({ navigation }) {
+export default function CardDetailScreen() {
+  const [cardData, setCardData] = useState({
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    cardholderName: "",
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        console.log("📦 Token geladen:", token);
+
+        if (!token) {
+          Alert.alert("Fout", "Token niet gevonden, log opnieuw in.");
+          return;
+        }
+
+        const res = await axios.get(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        const card = res.data.card || {};
+        setCardData({
+          cardNumber: card.number || "",
+          expiry: card.expiry || "",
+          cvv: card.cvv || "",
+          cardholderName: card.holder || "",
+        });
+      } catch (error) {
+        console.error(
+          "❌ Fout bij laden:",
+          error.response?.data || error.message
+        );
+        Alert.alert(
+          "Fout",
+          error.response?.data?.error || "Kon kaartgegevens niet laden."
+        );
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSave = async () => {
+    const { cardNumber, expiry, cvv, cardholderName } = cardData;
+
+    if (!/^\d{16}$/.test(cardNumber)) {
+      return Alert.alert(
+        "Ongeldig",
+        "Voer een geldig kaartnummer in (16 cijfers)."
+      );
+    }
+
+    if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
+      return Alert.alert(
+        "Ongeldig",
+        "Voer een geldige vervaldatum in (MM/YY)."
+      );
+    }
+
+    if (!/^\d{3}$/.test(cvv)) {
+      return Alert.alert("Ongeldig", "Voer een geldige CVV in (3 cijfers).");
+    }
+
+    if (!/^[A-Z\s]+$/i.test(cardholderName.trim())) {
+      return Alert.alert(
+        "Ongeldig",
+        "Naam mag alleen letters en spaties bevatten."
+      );
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      console.log("🔐 Opslaan met token:", token);
+
+      if (!token) {
+        Alert.alert("Fout", "Geen geldige token. Log opnieuw in.");
+        return;
+      }
+
+      await axios.post(
+        "https://raedar-backend.onrender.com/api/users/update",
+        {
+          card: {
+            number: cardNumber,
+            expiry,
+            cvv,
+            holder: cardholderName,
+          },
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      Alert.alert("Success", "Kaartgegevens opgeslagen!");
+    } catch (error) {
+      console.error(
+        "❌ Fout bij opslaan:",
+        error.response?.data || error.message
+      );
+      Alert.alert(
+        "Fout",
+        error.response?.data?.error || "Kon kaartgegevens niet opslaan."
+      );
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      {/* <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.backButton}
-        accessibilityLabel="Ga terug"
-      >
-        <Icon name="arrow-back" size={28} color="#001D3D" />
-      </TouchableOpacity> */}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.title}>Payment method</Text>
 
-      <Text style={styles.title}>Payment method</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Credit Card</Text>
+            <Image
+              source={require("../assets/mastercard.png")}
+              style={styles.mastercardLogo}
+            />
+            <View style={styles.chip} />
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Credit Card</Text>
-        <Image
-          source={require("../assets/mastercard.png")}
-          style={styles.mastercardLogo}
-        />
-        <View style={styles.chip} />
-      </View>
+          <Text style={styles.sectionTitle}>Card Detail</Text>
 
-      <Text style={styles.sectionTitle}>Card Detail</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Card Number"
+              value={cardData.cardNumber}
+              onChangeText={(text) =>
+                setCardData({
+                  ...cardData,
+                  cardNumber: text.replace(/[^0-9]/g, "").slice(0, 16),
+                })
+              }
+              keyboardType="numeric"
+              placeholderTextColor="#A0A9C0"
+            />
+            <Image
+              source={require("../assets/mastercard.png")}
+              style={styles.smallMastercard}
+            />
+          </View>
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="Card Number"
-          defaultValue="3134134893949"
-          keyboardType="numeric"
-          placeholderTextColor="#A0A9C0"
-        />
-        <Image
-          source={require("../assets/mastercard.png")}
-          style={styles.smallMastercard}
-        />
-      </View>
+          <View style={[styles.inputRow, { justifyContent: "space-between" }]}>
+            <TextInput
+              style={[styles.input, { flex: 0.45 }]}
+              placeholder="MM/YY"
+              value={cardData.expiry}
+              onChangeText={(text) => {
+                const cleaned = text.replace(/[^0-9]/g, "");
+                let formatted = cleaned;
+                if (cleaned.length >= 3) {
+                  formatted = cleaned.slice(0, 2) + "/" + cleaned.slice(2, 4);
+                }
+                setCardData({ ...cardData, expiry: formatted.slice(0, 5) });
+              }}
+              keyboardType="numbers-and-punctuation"
+              placeholderTextColor="#A0A9C0"
+            />
+            <TextInput
+              style={[styles.input, { flex: 0.45 }]}
+              placeholder="CVV"
+              value={cardData.cvv}
+              onChangeText={(text) =>
+                setCardData({
+                  ...cardData,
+                  cvv: text.replace(/[^0-9]/g, "").slice(0, 3),
+                })
+              }
+              keyboardType="numeric"
+              placeholderTextColor="#A0A9C0"
+            />
+          </View>
 
-      <View style={[styles.inputRow, { justifyContent: "space-between" }]}>
-        <TextInput
-          style={[styles.input, { flex: 0.45 }]}
-          placeholder="MM/YY"
-          defaultValue="10/28"
-          keyboardType="numeric"
-          placeholderTextColor="#A0A9C0"
-        />
-        <TextInput
-          style={[styles.input, { flex: 0.45 }]}
-          placeholder="CVV"
-          defaultValue="820"
-          keyboardType="numeric"
-          placeholderTextColor="#A0A9C0"
-        />
-      </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Cardholder Name"
+            value={cardData.cardholderName}
+            onChangeText={(text) =>
+              setCardData({
+                ...cardData,
+                cardholderName: text.replace(/[^a-zA-Z\s]/g, ""),
+              })
+            }
+            placeholderTextColor="#A0A9C0"
+            autoCapitalize="characters"
+          />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Cardholder Name"
-        defaultValue="JOHN SMITH"
-        placeholderTextColor="#A0A9C0"
-        autoCapitalize="characters"
-      />
-
-      <TouchableOpacity style={styles.confirmButton} activeOpacity={0.8}>
-        <Text style={styles.confirmButtonText}>Confirm Payment</Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity
+            style={styles.confirmButton}
+            activeOpacity={0.8}
+            onPress={handleSave}
+          >
+            <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: "#F9F9F9",
     paddingTop: 50,
     paddingHorizontal: 20,
+    paddingBottom: 60,
   },
-  backButton: { marginBottom: 20 },
   title: {
     fontSize: 26,
     fontWeight: "700",
@@ -147,30 +292,12 @@ const styles = StyleSheet.create({
     height: 24,
     resizeMode: "contain",
   },
-  totalContainer: {
-    backgroundColor: "#E6E8F0",
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-    marginBottom: 40,
-  },
-  totalLabel: {
-    fontWeight: "700",
-    fontSize: 14,
-    color: "#637381",
-  },
-  totalAmount: {
-    fontWeight: "700",
-    fontSize: 18,
-    color: "#001D3D",
-  },
   confirmButton: {
     backgroundColor: "#0A1F44",
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
-    top: 40,
+    marginTop: 40,
   },
   confirmButtonText: {
     color: "#fff",

@@ -16,9 +16,21 @@ import axios from "axios";
 import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// ✅ Nieuwe validatie die meerdere Belgische nummerplaat-formaten ondersteunt
 const isValidPlate = (plate) => {
-  const regex = /^[1-9]-[A-Z]{3}-\d{3}$/;
-  return regex.test(plate.toUpperCase());
+  const formatted = plate.toUpperCase().replace(/\s/g, "");
+
+  const patterns = [
+    /^[1-9]-[A-Z]{3}-\d{3}$/, // nieuw standaardformaat
+    /^[A-Z]{3}-\d{3}$/, // oud formaat
+    /^[A-Z]{3}-\d{4}$/, // oud gepersonaliseerd
+    /^O-[A-Z]{3}-\d{3}$/, // overheidsvoertuigen
+    /^TX-[A-Z]{3}-\d{3}$/, // taxi's
+    /^CD-\d{4}$/, // diplomatiek
+    /^[A-Z0-9]{1,8}$/, // gepersonaliseerde platen zonder streepjes
+  ];
+
+  return patterns.some((r) => r.test(formatted));
 };
 
 const VehicleCard = ({ vehicle, onPress }) => (
@@ -123,7 +135,7 @@ export default function VehiclesScreen() {
     if (!isValidPlate(plate)) {
       Alert.alert(
         "Invalid License Plate",
-        "Enter a valid Belgian license plate, 1-ABC-123."
+        "Enter a valid Belgian license plate."
       );
       return;
     }
@@ -233,14 +245,12 @@ export default function VehiclesScreen() {
               <TouchableOpacity
                 style={styles.editButton}
                 onPress={() => openEditModal(item)}
-                accessibilityLabel={`Edit ${item.brand} ${item.model}`}
               >
                 <Icon name="pencil" size={20} color="#001D3D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => deleteVehicle(item)}
-                accessibilityLabel={`Delete ${item.brand} ${item.model}`}
               >
                 <Icon name="trash" size={20} color="red" />
               </TouchableOpacity>
@@ -277,7 +287,6 @@ export default function VehiclesScreen() {
               value={brand}
               onChangeText={setBrand}
               style={styles.input}
-              returnKeyType="next"
               placeholderTextColor="#999"
             />
             <TextInput
@@ -285,7 +294,6 @@ export default function VehiclesScreen() {
               value={model}
               onChangeText={setModel}
               style={styles.input}
-              returnKeyType="next"
               placeholderTextColor="#999"
             />
             <TextInput
@@ -294,19 +302,17 @@ export default function VehiclesScreen() {
               onChangeText={setYear}
               keyboardType="numeric"
               style={styles.input}
-              returnKeyType="next"
               placeholderTextColor="#999"
               maxLength={4}
             />
             <TextInput
-              placeholder="1-ABC-123"
+              placeholder="e.g. 1-ABC-123 or TX-ABC-123"
               value={plate}
               onChangeText={(text) => setPlate(text.toUpperCase())}
               autoCapitalize="characters"
               style={styles.input}
-              returnKeyType="done"
               placeholderTextColor="#999"
-              maxLength={9}
+              maxLength={12} // ✅ aangepast voor langere platen
             />
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
