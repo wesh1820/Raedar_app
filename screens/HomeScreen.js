@@ -20,13 +20,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // Ad content array
 const adContent = [
   {
-    title: "👟 Exclusieve Drops!",
-    text: "Mis geen limited editions meer. Ontvang meldingen van nieuwe sneakerreleases in jouw buurt.",
-    image: require("../assets/promo2.png"), // voeg zelf deze afbeelding toe
+    title: "👟 Exclusive Drops!",
+    text: "Never miss limited editions again. Get notifications about new sneaker releases near you.",
+    image: require("../assets/promo2.png"), // make sure to add this image
   },
   {
-    title: "🍫 Hongerig onderweg?",
-    text: "Je bent niet jezelf als je honger hebt. Neem een Snickers voor onderweg – parkeer stressvrij én snack slim.",
+    title: "🍫 Hungry on the go?",
+    text: "You're not you when you're hungry. Grab a Snickers for the road – park stress-free and snack smart.",
     image: require("../assets/promo1.png"),
   },
 ];
