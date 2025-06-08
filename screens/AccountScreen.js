@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AccountScreen = () => {
@@ -67,11 +68,26 @@ const AccountScreen = () => {
         "Please allow access to photos"
       );
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ base64: true });
+
+    const result = await ImagePicker.launchImageLibraryAsync({ base64: false });
+
     if (!result.canceled && result.assets.length > 0) {
       const image = result.assets[0];
-      const base64 = `data:image/jpeg;base64,${image.base64}`;
+
+      // Resize & compress image
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        image.uri,
+        [{ resize: { width: 400 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        }
+      );
+
+      const base64 = `data:image/jpeg;base64,${manipulatedImage.base64}`;
       const token = await AsyncStorage.getItem("userToken");
+
       try {
         const res = await fetch(
           "https://raedar-backend.onrender.com/api/users/avatar",
@@ -84,10 +100,18 @@ const AccountScreen = () => {
             body: JSON.stringify({ avatar: base64 }),
           }
         );
-        const data = await res.json();
-        if (res.ok) setAvatar(data.avatar);
-        else Alert.alert("Error", data.error || "Uploading failed");
+
+        const text = await res.text();
+        console.log("⬅️ Avatar upload response:", text);
+
+        if (res.ok) {
+          const data = JSON.parse(text);
+          setAvatar(data.avatar);
+        } else {
+          Alert.alert("Error", `Uploading failed: ${text}`);
+        }
       } catch (error) {
+        console.error("❌ Upload error:", error);
         Alert.alert("Error", "Uploading failed");
       }
     }
@@ -99,6 +123,7 @@ const AccountScreen = () => {
       Alert.alert("Error", "You are not logged in");
       return;
     }
+
     try {
       const res = await fetch(
         "https://raedar-backend.onrender.com/api/users/update",
@@ -134,11 +159,13 @@ const AccountScreen = () => {
 
   const changePassword = async () => {
     if (!newPassword) return Alert.alert("Error", "Enter a new password");
+
     const token = await AsyncStorage.getItem("userToken");
     if (!token) {
       Alert.alert("Error", "You are not logged in");
       return;
     }
+
     try {
       const res = await fetch(
         "https://raedar-backend.onrender.com/api/users/password",
@@ -151,7 +178,9 @@ const AccountScreen = () => {
           body: JSON.stringify({ password: newPassword }),
         }
       );
+
       const data = await res.json();
+
       if (res.ok) {
         Alert.alert("Success", "Password changed");
         setNewPassword("");

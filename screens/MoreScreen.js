@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,42 +9,44 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 const MoreScreen = ({ setIsLoggedIn }) => {
   const navigation = useNavigation();
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-        if (!token) return;
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUserData = async () => {
+        try {
+          const token = await AsyncStorage.getItem("userToken");
+          if (!token) return;
 
-        const response = await fetch(
-          "https://raedar-backend.onrender.com/api/users",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+          const response = await fetch(
+            "https://raedar-backend.onrender.com/api/users",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Could not fetch user data.");
           }
-        );
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Kon gebruikersgegevens niet ophalen.");
+          setUser(data);
+        } catch (error) {
+          console.error("❌ Error fetching user:", error);
+          Alert.alert("Error", "Could not load user information.");
         }
+      };
 
-        setUser(data);
-      } catch (error) {
-        console.error("❌ Fout bij ophalen user:", error);
-        Alert.alert("Fout", "Kon gebruikersinformatie niet ophalen.");
-      }
-    };
-
-    fetchUserData();
-  }, []);
+      fetchUserData();
+    }, [])
+  );
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem("userToken");
@@ -54,25 +56,25 @@ const MoreScreen = ({ setIsLoggedIn }) => {
 
   return (
     <View style={styles.container}>
-      {/* Profile Header (Clickable) */}
+      {/* Profile Header */}
       <TouchableOpacity
         style={styles.profileContainer}
         onPress={() => navigation.navigate("Account")}
       >
         <Image
-          source={{
-            uri:
-              user?.avatar ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                user?.username || "User"
-              )}`,
-          }}
+          source={
+            user?.avatar
+              ? { uri: user.avatar }
+              : require("../assets/profile.png")
+          }
           style={styles.profileImage}
         />
         <View style={{ flex: 1 }}>
-          <Text style={styles.profileName}>{user?.username || "Laden..."}</Text>
+          <Text style={styles.profileName}>
+            {user?.username || "Loading..."}
+          </Text>
           <Text style={styles.profileLocation}>
-            {user?.phoneNumber || "Geen telefoonnummer"}
+            {user?.phoneNumber || "No phone number"}
           </Text>
         </View>
         <Icon name="settings" size={24} color="#001D3D" />
@@ -93,7 +95,7 @@ const MoreScreen = ({ setIsLoggedIn }) => {
           style={styles.menuItem}
           onPress={() => navigation.navigate("Vehicle")}
         >
-          <Text style={styles.menuText}>My vehicles</Text>
+          <Text style={styles.menuText}>My Vehicles</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

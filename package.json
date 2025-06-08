@@ -48,7 +48,8 @@
     "react-navigation": "^5.0.0",
     "undefined": "...",
     "expo-av": "~15.1.5",
-    "expo-updates": "~0.28.14"
+    "expo-updates": "~0.28.14",
+    "expo-image-manipulator": "~13.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
