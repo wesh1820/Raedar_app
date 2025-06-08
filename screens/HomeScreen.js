@@ -17,35 +17,19 @@ import { debounce } from "lodash";
 import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const isValidPlate = (plate) => {
-  const regex = /^[1-9]-[A-Z]{3}-\d{3}$/;
-  return regex.test(plate.toUpperCase());
-};
-
-const VehicleCard = ({ vehicle, selected, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[
-      styles.vehicleCard,
-      selected ? styles.vehicleCardSelected : styles.vehicleCardDefault,
-    ]}
-  >
-    <View style={styles.vehicleCardHeader}>
-      <Icon name="car" size={18} color={selected ? "#fff" : "#001D3D"} />
-    </View>
-    <Text style={[styles.vehicleCardTitle, selected && { color: "#fff" }]}>
-      {vehicle.year} {vehicle.brand} {vehicle.model}
-    </Text>
-    <Text style={[styles.vehicleCardPlate, selected && { color: "#fff" }]}>
-      {vehicle.plate}
-    </Text>
-    {selected && (
-      <View style={styles.checkmark}>
-        <Icon name="check-square" size={18} color="#fff" />
-      </View>
-    )}
-  </TouchableOpacity>
-);
+// Ad content array
+const adContent = [
+  {
+    title: "👟 Exclusieve Drops!",
+    text: "Mis geen limited editions meer. Ontvang meldingen van nieuwe sneakerreleases in jouw buurt.",
+    image: require("../assets/promo2.png"), // voeg zelf deze afbeelding toe
+  },
+  {
+    title: "🍫 Hongerig onderweg?",
+    text: "Je bent niet jezelf als je honger hebt. Neem een Snickers voor onderweg – parkeer stressvrij én snack slim.",
+    image: require("../assets/promo1.png"),
+  },
+];
 
 export default function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,7 +48,6 @@ export default function HomeScreen({ navigation }) {
   const [newModel, setNewModel] = useState("");
   const [newYear, setNewYear] = useState("");
   const [newPlate, setNewPlate] = useState("");
-  const vehiclesWithAddButton = [...vehicles, { isAddButton: true }];
   const [carpoolAdVisible, setCarpoolAdVisible] = useState(false);
   const [region, setRegion] = useState({
     latitude: 50.8503,
@@ -73,21 +56,22 @@ export default function HomeScreen({ navigation }) {
     longitudeDelta: 0.3,
   });
   const [loadingPremium, setLoadingPremium] = useState(true);
+  const [adModalVisible, setAdModalVisible] = useState(false);
+  const [adIndex, setAdIndex] = useState(0); // <-- belangrijk!
 
-  // userId ophalen
+  const isValidPlate = (plate) =>
+    /^[1-9]-[A-Z]{3}-\d{3}$/.test(plate.toUpperCase());
+
+  const vehiclesWithAddButton = [...vehicles, { isAddButton: true }];
+
   useEffect(() => {
     const getUserId = async () => {
-      try {
-        const id = await AsyncStorage.getItem("userId");
-        if (id) setStoredUserId(id);
-      } catch (err) {
-        console.error("Error loading user ID:", err);
-      }
+      const id = await AsyncStorage.getItem("userId");
+      if (id) setStoredUserId(id);
     };
     getUserId();
   }, []);
 
-  // premium status ophalen via API
   useEffect(() => {
     const fetchPremiumStatus = async () => {
       try {
@@ -120,32 +104,34 @@ export default function HomeScreen({ navigation }) {
       try {
         const token = await AsyncStorage.getItem("userToken");
         const userId = await AsyncStorage.getItem("userId");
-
-        if (!token || !userId) {
-          console.warn("Geen token of userId gevonden.");
-          return;
-        }
-
+        if (!token || !userId) return;
         const response = await axios.get(
           "https://raedar-backend.onrender.com/api/vehicles",
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         const userVehicles = response.data.filter((v) => v.userId === userId);
         setVehicles(userVehicles);
       } catch (error) {
         console.error("Fout bij ophalen voertuigen:", error);
       }
     };
-
     fetchVehicles();
   }, []);
 
-  // locatie + events ophalen
+  // ROTERENDE ADS voor niet-premium gebruikers
+  useEffect(() => {
+    if (!isPremium) {
+      const adInterval = setInterval(() => {
+        setAdIndex((prev) => (prev + 1) % adContent.length);
+        setAdModalVisible(true);
+      }, 60000); // elke 60 seconden
+
+      return () => clearInterval(adInterval);
+    }
+  }, [isPremium]);
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -180,36 +166,6 @@ export default function HomeScreen({ navigation }) {
     setTimeout(() => setCarpoolAdVisible(true), 5000);
   }, []);
 
-  // voertuig toevoegen
-  const centerToUserLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        alert("Locatietoegang geweigerd.");
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      const newRegion = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      };
-
-      setRegion(newRegion);
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-    } catch (error) {
-      console.error("Locatie ophalen mislukt:", error);
-    }
-  };
-
   const handleAddVehicle = async () => {
     if (!newBrand || !newModel || !newYear || !newPlate) {
       alert("Please fill in all fields.");
@@ -222,22 +178,11 @@ export default function HomeScreen({ navigation }) {
     }
 
     try {
-      let userId = storedUserId;
-
-      if (!userId) {
-        userId = await AsyncStorage.getItem("userId");
-        if (!userId) {
-          alert("User not found.");
-          return;
-        }
-        setStoredUserId(userId);
-      }
+      let userId = storedUserId || (await AsyncStorage.getItem("userId"));
+      if (!userId) return alert("User not found.");
 
       const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        alert("Token not found.");
-        return;
-      }
+      if (!token) return alert("Token not found.");
 
       const response = await axios.post(
         "https://raedar-backend.onrender.com/api/vehicles",
@@ -246,17 +191,12 @@ export default function HomeScreen({ navigation }) {
           model: newModel.trim(),
           year: Number(newYear.trim()),
           plate: newPlate.toUpperCase().trim(),
-          userId: userId,
+          userId,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const saved = response.data;
-      setVehicles((prev) => [saved, ...prev]);
+      setVehicles((prev) => [response.data, ...prev]);
       setAddingVehicle(false);
       setNewBrand("");
       setNewModel("");
@@ -276,13 +216,11 @@ export default function HomeScreen({ navigation }) {
   const debouncedSearch = debounce(async (text) => {
     setSearchQuery(text);
     if (!text) return setSuggestions([]);
-
     const filtered = eventsData
       .flatMap((e) => e.events || [])
       .filter((event) =>
         event.title.toLowerCase().includes(text.toLowerCase())
       );
-
     setSuggestions(filtered);
   }, 300);
 
@@ -291,13 +229,38 @@ export default function HomeScreen({ navigation }) {
     setFilterVisible(false);
     setSuggestions([]);
     setSearchQuery("");
-
     setRegion({
       latitude: event.latitude,
       longitude: event.longitude,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     });
+  };
+
+  const centerToUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        alert("Locatietoegang geweigerd.");
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+      setRegion(newRegion);
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (error) {
+      console.error("Locatie ophalen mislukt:", error);
+    }
   };
 
   if (loadingPremium) {
@@ -381,6 +344,30 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+      <Modal visible={adModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.carpoolAdOverlay}>
+          <View style={styles.carpoolAdBox}>
+            <Image
+              source={adContent[adIndex].image}
+              style={styles.carpoolImage}
+            />
+            <Text style={styles.carpoolAdTitle}>
+              {adContent[adIndex].title}
+            </Text>
+            <Text style={styles.carpoolAdText}>{adContent[adIndex].text}</Text>
+
+            <TouchableOpacity
+              onPress={() => setAdModalVisible(false)}
+              style={[
+                styles.carpoolAdCloseButton,
+                { backgroundColor: "#999", marginTop: 10 },
+              ]}
+            >
+              <Text style={{ color: "white", textAlign: "center" }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* VEHICLE MODAL */}
       {vehiclesModalVisible && (
@@ -402,18 +389,21 @@ export default function HomeScreen({ navigation }) {
                 <View style={styles.inputContainer}>
                   <TextInput
                     placeholder="Brand"
+                    placeholderTextColor="#999"
                     value={newBrand}
                     onChangeText={setNewBrand}
                     style={styles.input}
                   />
                   <TextInput
                     placeholder="Model"
+                    placeholderTextColor="#999"
                     value={newModel}
                     onChangeText={setNewModel}
                     style={styles.input}
                   />
                   <TextInput
                     placeholder="Year"
+                    placeholderTextColor="#999"
                     value={newYear}
                     onChangeText={setNewYear}
                     keyboardType="numeric"
