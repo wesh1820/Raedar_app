@@ -31,6 +31,31 @@ const adContent = [
   },
 ];
 
+const VehicleCard = ({ vehicle, selected, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      styles.vehicleCard,
+      selected ? styles.vehicleCardSelected : styles.vehicleCardDefault,
+    ]}
+  >
+    <View style={styles.vehicleCardHeader}>
+      <Icon name="car" size={18} color={selected ? "#fff" : "#001D3D"} />
+    </View>
+    <Text style={[styles.vehicleCardTitle, selected && { color: "#fff" }]}>
+      {vehicle.year} {vehicle.brand} {vehicle.model}
+    </Text>
+    <Text style={[styles.vehicleCardPlate, selected && { color: "#fff" }]}>
+      {vehicle.plate}
+    </Text>
+    {selected && (
+      <View style={styles.checkmark}>
+        <Icon name="check-square" size={18} color="#fff" />
+      </View>
+    )}
+  </TouchableOpacity>
+);
+
 export default function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
