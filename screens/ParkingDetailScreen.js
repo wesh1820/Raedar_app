@@ -72,11 +72,11 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
   const createTicketAndGoToPayment = async () => {
     if (totalDurationInMinutes <= 0) {
-      Alert.alert("Ongeldige tijd", "Selecteer eerst een geldig tijdslot.");
+      Alert.alert("Invalid Time", "Please select a valid time slot first.");
       return;
     }
     if (!userToken) {
-      Alert.alert("Error", "Je moet ingelogd zijn om een ticket te maken.");
+      Alert.alert("Error", "You must be logged in to create a ticket.");
       return;
     }
 
@@ -102,7 +102,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
       if (response.status >= 200 && response.status < 300) {
         const ticketData = response.data.ticket;
-        navigation.navigate("PaymentScreen", { ticket: ticketData });
+        navigation.navigate("OrderScreen", { ticket: ticketData });
       } else {
         Alert.alert("Error", "Failed to create ticket. Try again.");
       }
@@ -123,14 +123,14 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
   const handleNavigate = async () => {
     if (!parking?.latitude || !parking?.longitude) {
-      Alert.alert("Locatie onbekend", "Parking-coördinaten ontbreken.");
+      Alert.alert("Location unknown", "Parking-coordinates unknown.");
       return;
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Toestemming geweigerd", "Locatietoegang is nodig.");
+        Alert.alert("Acces denied", "Location access required.");
         return;
       }
       const location = await Location.getCurrentPositionAsync({});
@@ -147,7 +147,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>PARKING DETAIL</Text>
+      <Text style={styles.sectionLabel}>PARKING DETAILS</Text>
 
       <Image
         source={require("../assets/parking.png")}
@@ -176,7 +176,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         </View>
         <View style={styles.badge}>
           <Icon name="clock" size={14} color="#1B263B" />
-          <Text style={styles.badgeText}>15u - 23u</Text>
+          <Text style={styles.badgeText}>15h - 23h</Text>
         </View>
       </View>
 
@@ -194,7 +194,7 @@ const ParkingDetailScreen = ({ route, navigation }) => {
         <>
           <View style={styles.row}>
             <View style={styles.pickerContainer}>
-              <Text style={styles.pickerLabel}>Uren</Text>
+              <Text style={styles.pickerLabel}>Hours</Text>
               <Picker
                 selectedValue={hours.toString()}
                 style={styles.picker}
@@ -203,14 +203,14 @@ const ParkingDetailScreen = ({ route, navigation }) => {
                 {[...Array(24).keys()].map((i) => (
                   <Picker.Item
                     key={i}
-                    label={`${i} uur`}
+                    label={`${i} hour`}
                     value={i.toString()}
                   />
                 ))}
               </Picker>
             </View>
             <View style={styles.pickerContainer}>
-              <Text style={styles.pickerLabel}>Minuten</Text>
+              <Text style={styles.pickerLabel}>Minutes</Text>
               <Picker
                 selectedValue={minutes.toString()}
                 style={styles.picker}
@@ -230,12 +230,12 @@ const ParkingDetailScreen = ({ route, navigation }) => {
           <View style={styles.row}>
             <View style={styles.slotsBox}>
               <Text style={styles.slotsText}>
-                Duur: {totalDurationInMinutes} minuten
+                Time: {totalDurationInMinutes} Minutes
               </Text>
             </View>
             <View style={styles.slotsBox}>
               <Text style={styles.slotsText}>
-                Totaal: €{totalPrice.toFixed(2)}
+                Total: €{totalPrice.toFixed(2)}
               </Text>
             </View>
           </View>

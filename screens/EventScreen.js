@@ -35,7 +35,6 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 // Helper om datum dd-mm-jjjj naar Date object te parsen
 function parseDate(dateStr) {
-  // dateStr in format "15-09-2025"
   const [day, month, year] = dateStr.split("-");
   return new Date(year, month - 1, day);
 }
@@ -50,10 +49,43 @@ export function EventScreen() {
     date: false,
     favorite: false,
   });
-
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [isPremium, setIsPremium] = useState(false);
+  const [loadingPremium, setLoadingPremium] = useState(true);
+
   const navigation = useNavigation();
 
+  // Haal premium status op
+  useEffect(() => {
+    const fetchPremiumStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) {
+          setIsPremium(false);
+          setLoadingPremium(false);
+          return;
+        }
+
+        const response = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = await response.json();
+        setIsPremium(data?.premium ?? false);
+      } catch (error) {
+        console.error("Error fetching premium status:", error);
+        setIsPremium(false);
+      } finally {
+        setLoadingPremium(false);
+      }
+    };
+
+    fetchPremiumStatus();
+  }, []);
+
+  // Events ophalen en filteren
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
@@ -68,15 +100,14 @@ export function EventScreen() {
         let userLat = null;
         let userLon = null;
 
-        // Location ophalen als distance filter aanstaat
         if (filters.distance) {
           const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") {
-            console.warn("Toegang tot locatie geweigerd");
-          } else {
+          if (status === "granted") {
             const location = await Location.getCurrentPositionAsync({});
             userLat = location.coords.latitude;
             userLon = location.coords.longitude;
+          } else {
+            console.warn("Locatie toegang geweigerd");
           }
         }
 
@@ -92,7 +123,7 @@ export function EventScreen() {
           Array.isArray(cat.events) ? cat.events : []
         );
 
-        // Filter favorite
+        // Filters toepassen
         if (filters.favorite) {
           allEvents = allEvents.filter((event) => {
             const fav =
@@ -103,7 +134,6 @@ export function EventScreen() {
           });
         }
 
-        // Filter date: alleen events vandaag of later + sorteren op datum
         if (filters.date) {
           allEvents = allEvents
             .filter((event) => {
@@ -115,7 +145,6 @@ export function EventScreen() {
             .sort((a, b) => parseDate(a.date) - parseDate(b.date));
         }
 
-        // Filter popular
         if (filters.popular) {
           allEvents = allEvents.filter((event) => {
             const val =
@@ -126,7 +155,6 @@ export function EventScreen() {
           });
         }
 
-        // Filter distance: voeg afstand toe en sorteer
         if (filters.distance && userLat !== null && userLon !== null) {
           allEvents = allEvents
             .filter((event) => event && event.latitude && event.longitude)
@@ -148,7 +176,7 @@ export function EventScreen() {
           allEvents.sort((a, b) => a.distance - b.distance);
         }
 
-        // Als er geen event-filter actief is, toon categorieën in twee kolommen
+        // Geen filter: toon categorieën
         if (
           !filters.favorite &&
           !filters.date &&
@@ -156,7 +184,6 @@ export function EventScreen() {
           !filters.distance
         ) {
           setFilteredEvents([]);
-          // Categorieën voorbereiden voor 2 kolommen
           const sortedCategories = categories.sort((a, b) =>
             a.category.localeCompare(b.category)
           );
@@ -164,7 +191,6 @@ export function EventScreen() {
           const left = [];
           const right = [];
           sortedCategories.forEach((item, index) => {
-            // Hoogte afwisselen voor leukere layout
             const isEvenRow = Math.floor(index / 2) % 2 === 0;
             const isLeft = index % 2 === 0;
             const heightFactor = isEvenRow
@@ -184,7 +210,6 @@ export function EventScreen() {
           setLeftColumn(left);
           setRightColumn(right);
         } else {
-          // Anders tonen we de gefilterde events
           setFilteredEvents(allEvents);
           setLeftColumn([]);
           setRightColumn([]);
@@ -199,10 +224,16 @@ export function EventScreen() {
     fetchEvents();
   }, [filters]);
 
+  // Navigatie functie met premium check voor filters
   const openEvent = (event) => {
     const isFilterActive = Object.values(filters).some((v) => v === true);
+
     if (isFilterActive) {
-      navigation.navigate("ParkingDetail", { parking: event }); // ✅ niet { event }
+      if (isPremium) {
+        navigation.navigate("EventDetailScreen", { event });
+      } else {
+        navigation.navigate("ParkingDetail", { parking: event });
+      }
     } else {
       navigation.navigate("EventDetailScreen", { event });
     }
@@ -218,8 +249,6 @@ export function EventScreen() {
   const toggleFilter = (filter) => {
     setFilters((prev) => {
       const isCurrentlyActive = prev[filter];
-
-      // Als filter aan staat en je klikt er weer op -> alles uitzetten (geen filter)
       if (isCurrentlyActive) {
         return {
           popular: false,
@@ -228,8 +257,6 @@ export function EventScreen() {
           favorite: false,
         };
       }
-
-      // Anders zet alleen deze filter aan en zet de rest uit
       return {
         popular: false,
         distance: false,
@@ -295,11 +322,11 @@ export function EventScreen() {
       );
     });
 
-  if (loading) {
+  if (loading || loadingPremium) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading events...</Text>
+        <Text>Loading events and user data...</Text>
       </View>
     );
   }
@@ -307,7 +334,7 @@ export function EventScreen() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <Image
-        source={require("../assets/festival.png")}
+        source={require("../assets/rwall.png")}
         style={styles.festivalImage}
       />
 
@@ -443,5 +470,3 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
-
-export default EventScreen;

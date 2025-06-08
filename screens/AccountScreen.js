@@ -26,13 +26,25 @@ const AccountScreen = () => {
   useEffect(() => {
     (async () => {
       const token = await AsyncStorage.getItem("userToken");
-      if (!token) return;
+      if (!token) {
+        Alert.alert("Error", "You are not logged in");
+        return;
+      }
 
-      const res = await fetch("https://raedar-backend.onrender.com/api/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const res = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-      if (res.ok) {
+        if (!res.ok) {
+          const text = await res.text();
+          Alert.alert("Error", "Failed to fetch profile: " + text);
+          return;
+        }
+
         const data = await res.json();
         setFirstName(data.firstName || "");
         setLastName(data.lastName || "");
@@ -41,6 +53,8 @@ const AccountScreen = () => {
         setEmail(data.email || "");
         setPhone(data.phoneNumber || "");
         setAvatar(data.avatar || null);
+      } catch (error) {
+        Alert.alert("Error", "Something went wrong while fetching profile");
       }
     })();
   }, []);
@@ -48,76 +62,105 @@ const AccountScreen = () => {
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      return Alert.alert("Toestemming vereist", "Geef toegang tot foto's.");
+      return Alert.alert(
+        "Permission required",
+        "Please allow access to photos"
+      );
     }
     const result = await ImagePicker.launchImageLibraryAsync({ base64: true });
     if (!result.canceled && result.assets.length > 0) {
       const image = result.assets[0];
       const base64 = `data:image/jpeg;base64,${image.base64}`;
       const token = await AsyncStorage.getItem("userToken");
+      try {
+        const res = await fetch(
+          "https://raedar-backend.onrender.com/api/users/avatar",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ avatar: base64 }),
+          }
+        );
+        const data = await res.json();
+        if (res.ok) setAvatar(data.avatar);
+        else Alert.alert("Error", data.error || "Uploading failed");
+      } catch (error) {
+        Alert.alert("Error", "Uploading failed");
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) {
+      Alert.alert("Error", "You are not logged in");
+      return;
+    }
+    try {
       const res = await fetch(
-        "https://raedar-backend.onrender.com/api/users/avatar",
+        "https://raedar-backend.onrender.com/api/users/update",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ avatar: base64 }),
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            street,
+            city,
+            email,
+            phoneNumber: phone,
+          }),
         }
       );
-      const data = await res.json();
-      if (res.ok) setAvatar(data.avatar);
-      else Alert.alert("Fout", data.error || "Uploaden mislukt.");
+
+      const text = await res.text();
+
+      if (res.ok) {
+        const data = JSON.parse(text);
+        Alert.alert("Success", data.message || "Saved successfully");
+      } else {
+        Alert.alert("Error", `Save failed: ${text}`);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Something went wrong while saving profile");
     }
   };
 
-  const handleSave = async () => {
-    const token = await AsyncStorage.getItem("userToken");
-    const res = await fetch(
-      "https://raedar-backend.onrender.com/api/users/update",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          street,
-          city,
-          email,
-          phoneNumber: phone,
-        }),
-      }
-    );
-    const data = await res.json();
-    if (res.ok) Alert.alert("Succes", "Profiel opgeslagen");
-    else Alert.alert("Fout", data.error || "Opslaan mislukt");
-  };
-
   const changePassword = async () => {
-    if (!newPassword) return Alert.alert("Fout", "Wachtwoord invullen");
+    if (!newPassword) return Alert.alert("Error", "Enter a new password");
     const token = await AsyncStorage.getItem("userToken");
-    const res = await fetch(
-      "https://raedar-backend.onrender.com/api/users/password",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ password: newPassword }),
+    if (!token) {
+      Alert.alert("Error", "You are not logged in");
+      return;
+    }
+    try {
+      const res = await fetch(
+        "https://raedar-backend.onrender.com/api/users/password",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ password: newPassword }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        Alert.alert("Success", "Password changed");
+        setNewPassword("");
+        setShowPasswordInput(false);
+      } else {
+        Alert.alert("Error", data.error || "Failed");
       }
-    );
-    const data = await res.json();
-    if (res.ok) {
-      Alert.alert("Succes", "Wachtwoord gewijzigd");
-      setNewPassword("");
-      setShowPasswordInput(false);
-    } else {
-      Alert.alert("Fout", data.error || "Mislukt");
+    } catch (error) {
+      Alert.alert("Error", "Something went wrong while changing password");
     }
   };
 
@@ -129,8 +172,10 @@ const AccountScreen = () => {
           style={styles.avatar}
         />
       </TouchableOpacity>
+
       <Text style={styles.title}>Edit Profile</Text>
-      <Text style={styles.sectionTitle}>Profile Detail</Text>
+
+      <Text style={styles.sectionTitle}>Profile Details</Text>
       <View style={styles.row}>
         <TextInput
           style={styles.inputHalf}
@@ -145,6 +190,7 @@ const AccountScreen = () => {
           placeholder="Last Name"
         />
       </View>
+
       <View style={styles.row}>
         <TextInput
           style={styles.inputHalf}
@@ -159,13 +205,16 @@ const AccountScreen = () => {
           placeholder="City"
         />
       </View>
+
       <TextInput
         style={styles.inputFull}
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
         keyboardType="email-address"
+        autoCapitalize="none"
       />
+
       <TextInput
         style={styles.inputFull}
         value={phone}
@@ -180,18 +229,19 @@ const AccountScreen = () => {
             style={styles.inputFull}
             value={newPassword}
             onChangeText={setNewPassword}
-            placeholder="Nieuw wachtwoord"
+            placeholder="New password"
             secureTextEntry
+            autoCapitalize="none"
           />
           <TouchableOpacity style={styles.saveButton} onPress={changePassword}>
-            <Text style={styles.saveText}>Wachtwoord wijzigen</Text>
+            <Text style={styles.saveText}>Change Password</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {!showPasswordInput && (
         <TouchableOpacity onPress={() => setShowPasswordInput(true)}>
-          <Text style={styles.changePassword}>Wachtwoord wijzigen</Text>
+          <Text style={styles.changePassword}>Change Password</Text>
         </TouchableOpacity>
       )}
 
@@ -218,14 +268,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     color: "#001D3D",
-    marginBottom: 20,
+    marginBottom: 60,
   },
   sectionTitle: {
     alignSelf: "flex-start",
     fontSize: 18,
     fontWeight: "bold",
     color: "#001D3D",
-    marginBottom: 10,
+    marginBottom: 20,
   },
   row: {
     flexDirection: "row",

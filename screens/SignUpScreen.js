@@ -8,7 +8,6 @@ import {
   Image,
   Alert,
   ImageBackground,
-  CheckBox,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,7 +23,7 @@ export default function SignUpScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (!email || !username || !phoneNumber || !password || !agreeTerms) {
-      Alert.alert("Error", "Vul alle velden in en accepteer de voorwaarden.");
+      Alert.alert("Error", "Please fill in all fields and accept the terms.");
       return;
     }
 
@@ -46,15 +45,24 @@ export default function SignUpScreen({ navigation }) {
       );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Registratie mislukt");
+      console.log("📥 Signup response:", data);
+
+      if (!response.ok) throw new Error(data.error || "Registration failed");
+
+      if (!data.user || !data.user._id) {
+        throw new Error("Registration succeeded but userId is missing.");
+      }
 
       await AsyncStorage.setItem("userToken", data.token);
+      await AsyncStorage.setItem("userId", data.user._id);
       await AsyncStorage.setItem("hasSeenWalkthrough", "false");
 
-      Alert.alert("Succes", "Account succesvol aangemaakt!");
+      console.log("✅ userId saved on registration:", data.user._id);
+
+      Alert.alert("Success", "Account successfully created!");
       navigation.navigate("Walkthrough");
     } catch (error) {
-      Alert.alert("Fout", error.message);
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -77,7 +85,7 @@ export default function SignUpScreen({ navigation }) {
       <View style={styles.bottomContainer}>
         <Text style={styles.title}>Register</Text>
 
-        {/* E-mail */}
+        {/* Email */}
         <View style={styles.inputWrapper}>
           <Icon name="at" size={20} color="#667085" style={styles.icon} />
           <TextInput
@@ -149,12 +157,11 @@ export default function SignUpScreen({ navigation }) {
           <Text style={styles.checkboxLabel}>Terms & Agreements</Text>
         </View>
 
-        {/* Navigatie en button */}
         <Text
           style={styles.loginText}
           onPress={() => navigation.navigate("Login")}
         >
-          I have an account already
+          Already have an account?
         </Text>
 
         <TouchableOpacity
@@ -162,7 +169,9 @@ export default function SignUpScreen({ navigation }) {
           onPress={handleSignUp}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>Register</Text>
+          <Text style={styles.buttonText}>
+            {loading ? "Registering..." : "Register"}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

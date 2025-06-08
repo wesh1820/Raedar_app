@@ -89,19 +89,31 @@ const MoreScreen = ({ setIsLoggedIn }) => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate("Vehicle")}
+        >
           <Text style={styles.menuText}>My vehicles</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate("AccessibilitySettings")}
+        >
           <Text style={styles.menuText}>Accessibility</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate("Payment")}
+        >
           <Text style={styles.menuText}>Payment</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate("Support")}
+        >
           <Text style={styles.menuText}>Support</Text>
         </TouchableOpacity>
       </View>

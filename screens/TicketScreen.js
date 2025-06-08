@@ -27,14 +27,14 @@ const TicketScreen = ({ navigation }) => {
         setUserTel(tel);
 
         if (!token) {
-          setError("Geen token gevonden. Log opnieuw in.");
+          setError("No token found. Please log in again.");
           setLoading(false);
           return;
         }
 
         await fetchTickets(token, tel);
       } catch (e) {
-        setError("Fout bij ophalen authenticatie data.");
+        setError("Error fetching authentication data.");
         setLoading(false);
       }
     };
@@ -56,7 +56,7 @@ const TicketScreen = ({ navigation }) => {
 
       if (!response.ok) {
         throw new Error(
-          `Fout bij ophalen tickets: ${response.statusText} (${response.status})`
+          `Error fetching tickets: ${response.statusText} (${response.status})`
         );
       }
 
@@ -163,14 +163,14 @@ const TicketScreen = ({ navigation }) => {
   };
 
   const formatCountdown = (ms) => {
-    if (ms <= 0) return "Verlopen";
+    if (ms <= 0) return "Expired";
 
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
-    return `${hours > 0 ? hours + "u " : ""}${minutes}m ${seconds}s`;
+    return `${hours > 0 ? hours + "h " : ""}${minutes}m ${seconds}s`;
   };
 
   const formatDate = (dateString) => {
@@ -179,18 +179,16 @@ const TicketScreen = ({ navigation }) => {
     return date.toLocaleDateString(undefined, options);
   };
 
-  if (loading) return <Text>Bezig met laden...</Text>;
-  if (error) return <Text style={{ color: "red" }}>Fout: {error}</Text>;
+  if (loading) return <Text>Loading...</Text>;
+  if (error) return <Text style={{ color: "red" }}>Error: {error}</Text>;
 
   return (
     <View style={styles.container}>
       {tickets.length === 0 ? (
-        <Text style={styles.noTicketsText}>
-          Er zijn geen tickets beschikbaar
-        </Text>
+        <Text style={styles.noTicketsText}>No tickets available</Text>
       ) : (
         <>
-          <Text style={styles.sectionTitle}>Actieve Tickets</Text>
+          <Text style={styles.sectionTitle}>Active Tickets</Text>
           <FlatList
             data={tickets}
             keyExtractor={(item) => item._id}
@@ -230,19 +228,19 @@ const TicketScreen = ({ navigation }) => {
                           })
                         }
                       >
-                        <Text style={styles.buttonText}>Scan QR Code</Text>
+                        <Text style={styles.buttonText}>QR Code</Text>
                       </TouchableOpacity>
                     )}
 
                     {!isRunning && timeLeft === 0 && (
                       <Text style={{ color: "red", marginTop: 8 }}>
-                        Timer verlopen
+                        Timer expired
                       </Text>
                     )}
 
                     {isRunning && (
                       <Text style={{ color: "green", marginTop: 8 }}>
-                        Timer loopt
+                        Timer running
                       </Text>
                     )}
                   </View>
@@ -250,7 +248,7 @@ const TicketScreen = ({ navigation }) => {
               );
             }}
           />
-          <Text style={styles.sectionFooter}>Verlopen Tickets</Text>
+          <Text style={styles.sectionFooter}>Expired Tickets</Text>
         </>
       )}
     </View>
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 7,
     paddingHorizontal: 15,
-    backgroundColor: "#EB6534",
+    backgroundColor: "#001D3D",
     borderRadius: 5,
     alignSelf: "flex-start",
   },

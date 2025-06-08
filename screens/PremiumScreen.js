@@ -7,8 +7,11 @@ import {
   Alert,
   ScrollView,
   Modal,
+  ImageBackground,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const headerImage = require("../assets/premium.png");
 
 const PremiumScreen = () => {
   const [loading, setLoading] = useState(false);
@@ -54,10 +57,10 @@ const PremiumScreen = () => {
   }, []);
 
   const cancelPremium = async () => {
-    Alert.alert("Premium opzeggen", "Weet je het zeker?", [
-      { text: "Annuleer", style: "cancel" },
+    Alert.alert("Cancel Premium", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: "Bevestig",
+        text: "Confirm",
         onPress: async () => {
           setLoading(true);
           try {
@@ -73,11 +76,11 @@ const PremiumScreen = () => {
             );
             const data = await res.json();
             if (data.success) {
-              Alert.alert("Premium geannuleerd.");
+              Alert.alert("Premium cancelled.");
               setPendingCancellation(true);
             }
           } catch {
-            Alert.alert("Fout", "Probeer later opnieuw.");
+            Alert.alert("Error", "Please try again later.");
           }
           setLoading(false);
         },
@@ -104,9 +107,9 @@ const PremiumScreen = () => {
       setLoading(false);
       if (data.success) {
         Alert.alert(
-          "Succes",
-          `Premium geactiveerd (${
-            type === "month" ? "€4,99 per maand" : "€49,99 per jaar"
+          "Success",
+          `Premium activated (${
+            type === "month" ? "€4.99/month" : "€49.99/year"
           })!`
         );
         setIsPremium(true);
@@ -117,47 +120,46 @@ const PremiumScreen = () => {
             : new Date(new Date().setFullYear(new Date().getFullYear() + 1))
         );
       } else {
-        Alert.alert("Fout", data.error || "Kon premium niet activeren.");
+        Alert.alert("Error", data.error || "Could not activate premium.");
       }
     } catch (error) {
       setLoading(false);
-      Alert.alert("Fout", "Er is een probleem met de server.");
+      Alert.alert("Error", "There was a problem with the server.");
     }
   };
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logoText}>
-          Rae<Text style={styles.orange}>dar</Text>
-        </Text>
-        <Text style={styles.premiumText}>PREMIUM ★</Text>
-      </View>
+      <ImageBackground
+        source={headerImage}
+        style={styles.header}
+        resizeMode="cover"
+      />
 
       <View style={styles.cardContainer}>
-        <Text style={styles.sectionTitle}>Voordelen</Text>
-        <Text style={styles.bullet}>• Geen advertenties 🚫</Text>
-        <Text style={styles.bullet}>• Exclusieve functies ⭐️</Text>
-        <Text style={styles.bullet}>• Snelle ondersteuning ⚡️</Text>
-        <Text style={styles.bullet}>• Gratis parking notificaties 🔔</Text>
+        <Text style={styles.sectionTitle}>Benefits</Text>
+        <Text style={styles.bullet}>• No ads 🚫</Text>
+        <Text style={styles.bullet}>• Exclusive features ⭐️</Text>
+        <Text style={styles.bullet}>• Fast support ⚡️</Text>
+        <Text style={styles.bullet}>• Free parking notifications 🔔</Text>
       </View>
 
       {isPremium && (
         <Text style={styles.paymentLabel}>
-          Actief tot:{" "}
+          Active until:{" "}
           {premiumEndDate
             ? new Date(premiumEndDate).toLocaleDateString()
-            : "Onbekend"}
+            : "Unknown"}
         </Text>
       )}
 
       {isPremium && pendingCancellation && (
         <View style={styles.noticeBox}>
           <Text style={styles.noticeText}>
-            Premium geannuleerd – actief tot{" "}
+            Premium cancelled – active until{" "}
             {premiumEndDate
               ? new Date(premiumEndDate).toLocaleDateString()
-              : "einde van de maand"}
+              : "end of the month"}
             .
           </Text>
         </View>
@@ -165,7 +167,7 @@ const PremiumScreen = () => {
 
       {isPremium && !pendingCancellation && (
         <TouchableOpacity style={styles.cancelButton} onPress={cancelPremium}>
-          <Text style={styles.cancelText}>Annuleer Premium</Text>
+          <Text style={styles.cancelText}>Cancel Premium</Text>
         </TouchableOpacity>
       )}
 
@@ -174,28 +176,28 @@ const PremiumScreen = () => {
           style={styles.subscribeButton}
           onPress={() => setShowModal(true)}
         >
-          <Text style={styles.cancelText}>Word Premium</Text>
+          <Text style={styles.cancelText}>Get Premium</Text>
         </TouchableOpacity>
       )}
 
       <Modal visible={showModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Kies je plan</Text>
+            <Text style={styles.modalTitle}>Choose Your Plan</Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => purchasePremium("month")}
             >
-              <Text style={styles.modalButtonText}>€4,99 per maand</Text>
+              <Text style={styles.modalButtonText}>€4.99/month</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => purchasePremium("year")}
             >
-              <Text style={styles.modalButtonText}>€49,99 per jaar</Text>
+              <Text style={styles.modalButtonText}>€49.99/year</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowModal(false)}>
-              <Text style={styles.modalCancel}>Annuleer</Text>
+              <Text style={styles.modalCancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -209,18 +211,9 @@ export default PremiumScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   header: {
-    backgroundColor: "#001D3D",
-    paddingTop: 60,
-    paddingBottom: 30,
+    height: 200,
+    justifyContent: "center",
     alignItems: "center",
-  },
-  logoText: { fontSize: 36, fontWeight: "900", color: "white" },
-  orange: { color: "#EB6534" },
-  premiumText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 6,
   },
   cardContainer: {
     backgroundColor: "#F1F5F9",
@@ -247,19 +240,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#001D3D",
   },
-  totalBox: {
-    marginTop: 20,
-    marginHorizontal: 20,
-    backgroundColor: "#F1F5F9",
-    padding: 20,
-    borderTopWidth: 4,
-    borderTopColor: "#EB6534",
-    borderRadius: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  totalLabel: { color: "#4B5563", fontSize: 18 },
-  totalAmount: { color: "#001D3D", fontSize: 22, fontWeight: "bold" },
   cancelButton: {
     backgroundColor: "#001D3D",
     marginTop: 30,

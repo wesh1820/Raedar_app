@@ -8,6 +8,7 @@ import {
   Modal,
   FlatList,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
@@ -15,6 +16,11 @@ import axios from "axios";
 import { debounce } from "lodash";
 import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const isValidPlate = (plate) => {
+  const regex = /^[1-9]-[A-Z]{3}-\d{3}$/;
+  return regex.test(plate.toUpperCase());
+};
 
 const VehicleCard = ({ vehicle, selected, onPress }) => (
   <TouchableOpacity
@@ -52,45 +58,114 @@ export default function HomeScreen({ navigation }) {
   const [userLocation, setUserLocation] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
   const [vehicles, setVehicles] = useState([]);
-
+  const [storedUserId, setStoredUserId] = useState(null);
   const [addingVehicle, setAddingVehicle] = useState(false);
   const [newBrand, setNewBrand] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newYear, setNewYear] = useState("");
   const [newPlate, setNewPlate] = useState("");
-
+  const vehiclesWithAddButton = [...vehicles, { isAddButton: true }];
   const [carpoolAdVisible, setCarpoolAdVisible] = useState(false);
-
   const [region, setRegion] = useState({
     latitude: 50.8503,
     longitude: 4.3517,
     latitudeDelta: 0.3,
     longitudeDelta: 0.3,
   });
+  const [loadingPremium, setLoadingPremium] = useState(true);
 
+  // userId ophalen
   useEffect(() => {
-    setTimeout(() => {
-      setIsPremium(true);
-    }, 1000);
-
-    setTimeout(() => {
-      setCarpoolAdVisible(true);
-    }, 5000);
+    const getUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem("userId");
+        if (id) setStoredUserId(id);
+      } catch (err) {
+        console.error("Error loading user ID:", err);
+      }
+    };
+    getUserId();
   }, []);
 
+  // premium status ophalen via API
+  useEffect(() => {
+    const fetchPremiumStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) {
+          setIsPremium(false);
+          setLoadingPremium(false);
+          return;
+        }
+        const response = await fetch(
+          "https://raedar-backend.onrender.com/api/users",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = await response.json();
+        setIsPremium(data?.premium ?? false);
+      } catch (error) {
+        console.error("Error fetching premium status:", error);
+        setIsPremium(false);
+      } finally {
+        setLoadingPremium(false);
+      }
+    };
+    fetchPremiumStatus();
+  }, []);
+
+  // voertuigen ophalen
+  useEffect(() => {
+    if (!storedUserId) return;
+
+    const fetchVehicles = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (!token) {
+          console.warn("Geen token gevonden, kan voertuigen niet ophalen");
+          return;
+        }
+
+        const response = await axios.get(
+          "https://raedar-backend.onrender.com/api/vehicles",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const userVehicles = response.data.filter(
+          (v) => v.userId === storedUserId
+        );
+        setVehicles(userVehicles);
+      } catch (err) {
+        console.error("Error fetching vehicles:", err);
+      }
+    };
+
+    fetchVehicles();
+  }, [storedUserId]);
+
+  // locatie + events ophalen
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        setRegion((r) => ({
+          ...r,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }));
+      }
     })();
 
     const fetchEvents = async () => {
@@ -100,73 +175,36 @@ export default function HomeScreen({ navigation }) {
         );
         setEventsData(response.data);
       } catch (err) {
-        console.error("❌ Error fetching events:", err);
-      }
-    };
-
-    const fetchVehicles = async () => {
-      try {
-        const storedUserId = await AsyncStorage.getItem("userId");
-        if (!storedUserId) return;
-
-        const response = await axios.get(
-          "https://raedar-backend.onrender.com/api/vehicles"
-        );
-        const userVehicles = response.data.filter(
-          (v) => v.userId === storedUserId
-        );
-        setVehicles(userVehicles);
-      } catch (error) {
-        console.error("❌ Error fetching vehicles:", error);
+        console.error("Error fetching events:", err);
       }
     };
 
     fetchEvents();
-    fetchVehicles();
+    setTimeout(() => setCarpoolAdVisible(true), 5000);
   }, []);
 
-  const debouncedSearch = debounce((text) => {
-    setSearchQuery(text);
-    if (text.length > 0) {
-      const filtered = eventsData
-        .flatMap((e) => e.events)
-        .filter((event) =>
-          event.title.toLowerCase().includes(text.toLowerCase())
-        );
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
-    }
-  }, 300);
-
-  const handleSuggestionPress = (event) => {
-    setSearchQuery(event.title);
-    setSuggestions([]);
-    setRegion({
-      latitude: event.latitude,
-      longitude: event.longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    });
-    setSelectedEvent(event);
-    setFilterVisible(false);
-  };
-
-  const handleVehicleSelect = (vehicle) => {
-    setSelectedVehicle(vehicle);
-    setVehiclesModalVisible(false);
-  };
+  // voertuig toevoegen
   const handleAddVehicle = async () => {
     if (!newBrand || !newModel || !newYear || !newPlate) {
-      alert("Vul alle velden in.");
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    if (!isValidPlate(newPlate)) {
+      alert("Enter a valid Belgian license plate, e.g., 1-ABC-123.");
       return;
     }
 
     try {
-      const userId = await AsyncStorage.getItem("userId");
+      let userId = storedUserId;
+
       if (!userId) {
-        alert("Gebruiker niet gevonden.");
-        return;
+        userId = await AsyncStorage.getItem("userId");
+        if (!userId) {
+          alert("User not found.");
+          return;
+        }
+        setStoredUserId(userId);
       }
 
       const response = await axios.post(
@@ -175,28 +213,77 @@ export default function HomeScreen({ navigation }) {
           brand: newBrand,
           model: newModel,
           year: newYear,
-          plate: newPlate,
+          plate: newPlate.toUpperCase(),
           userId: userId,
         }
       );
 
-      const savedVehicle = response.data;
-
-      setVehicles((prev) => [savedVehicle, ...prev]);
+      const saved = response.data;
+      setVehicles((prev) => [saved, ...prev]);
       setAddingVehicle(false);
       setNewBrand("");
       setNewModel("");
       setNewYear("");
       setNewPlate("");
-    } catch (error) {
-      console.error("❌ Fout bij toevoegen voertuig:", error);
-      alert("Voertuig toevoegen is mislukt.");
+    } catch (err) {
+      console.error("Error adding car:", err);
+      alert("Adding vehicle failed.");
     }
   };
 
+  const handleVehicleSelect = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setVehiclesModalVisible(false);
+  };
+
+  const debouncedSearch = debounce(async (text) => {
+    setSearchQuery(text);
+    if (!text) return setSuggestions([]);
+
+    const filtered = eventsData
+      .flatMap((e) => e.events || [])
+      .filter((event) =>
+        event.title.toLowerCase().includes(text.toLowerCase())
+      );
+
+    setSuggestions(filtered);
+  }, 300);
+
+  const handleSuggestionPress = (event) => {
+    setSelectedEvent(event);
+    setFilterVisible(false);
+    setSuggestions([]);
+    setSearchQuery("");
+
+    setRegion({
+      latitude: event.latitude,
+      longitude: event.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+  };
+
+  if (loadingPremium) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color="#001D3D" />
+        <Text>Loading user data...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} initialRegion={region}>
+      <MapView
+        style={styles.map}
+        region={region}
+        onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
+      >
         {userLocation && (
           <Marker coordinate={userLocation}>
             <View style={styles.locationDotOuter}>
@@ -214,32 +301,21 @@ export default function HomeScreen({ navigation }) {
                   latitude: event.latitude,
                   longitude: event.longitude,
                 }}
-                onPress={() => setSelectedEvent(event)}
+                onPress={() => {
+                  setSelectedEvent(event);
+                  setRegion({
+                    latitude: event.latitude,
+                    longitude: event.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  });
+                }}
               >
                 <Image
                   source={require("../assets/pin-icon3.png")}
                   style={styles.pinIcon}
                 />
               </Marker>
-
-              {/* {isPremium &&
-                event.parkings &&
-                event.parkings.map((parking, pIndex) => (
-                  <Marker
-                    key={`parking-${index}-${pIndex}`}
-                    coordinate={{
-                      latitude: parseFloat(parking.latitude),
-                      longitude: parseFloat(parking.longitude),
-                    }}
-                    title={parking.location}
-                    description={`Capacity: ${parking.capacity}, €${parking.price}`}
-                  >
-                    <Image
-                      source={require("../assets/pin-icon2.png")}
-                      style={styles.pinIcon}
-                    />
-                  </Marker>
-                ))} */}
             </React.Fragment>
           ))}
       </MapView>
@@ -252,25 +328,31 @@ export default function HomeScreen({ navigation }) {
               source={require("../assets/carpool.png")}
               style={styles.carpoolImage}
             />
-            <Text style={styles.carpoolAdTitle}>🌍 Denk aan het milieu!</Text>
+            <Text style={styles.carpoolAdTitle}>
+              🌍 Think about the planet!
+            </Text>
             <Text style={styles.carpoolAdText}>
-              Carpool naar evenementen en help CO₂-uitstoot verminderen. Samen
-              maken we het verschil!
+              Carpool to events and help reduce CO₂ emissions. Together, we make
+              a difference!
             </Text>
             <TouchableOpacity
               onPress={() => setCarpoolAdVisible(false)}
               style={styles.carpoolAdCloseButton}
             >
-              <Text style={{ color: "white", textAlign: "center" }}>
-                Sluiten
-              </Text>
+              <Text style={{ color: "white", textAlign: "center" }}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
       {/* VEHICLE MODAL */}
       {vehiclesModalVisible && (
-        <Modal visible={true} animationType="fade" transparent={true}>
+        <Modal
+          visible={true}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setVehiclesModalVisible(false)}
+        >
           <View style={styles.filterContainer}>
             <View
               style={[styles.filterBox, { height: addingVehicle ? 360 : 250 }]}
@@ -282,7 +364,7 @@ export default function HomeScreen({ navigation }) {
               {addingVehicle ? (
                 <View style={styles.inputContainer}>
                   <TextInput
-                    placeholder="Merk"
+                    placeholder="Brand"
                     value={newBrand}
                     onChangeText={setNewBrand}
                     style={styles.input}
@@ -294,16 +376,18 @@ export default function HomeScreen({ navigation }) {
                     style={styles.input}
                   />
                   <TextInput
-                    placeholder="Bouwjaar"
+                    placeholder="Year"
                     value={newYear}
                     onChangeText={setNewYear}
                     keyboardType="numeric"
                     style={styles.input}
                   />
                   <TextInput
-                    placeholder="Kenteken"
+                    placeholder="1-ABC-123"
+                    placeholderTextColor="#999"
                     value={newPlate}
-                    onChangeText={setNewPlate}
+                    onChangeText={(text) => setNewPlate(text.toUpperCase())}
+                    autoCapitalize="characters"
                     style={styles.input}
                   />
 
@@ -312,14 +396,14 @@ export default function HomeScreen({ navigation }) {
                       onPress={() => setAddingVehicle(false)}
                       style={[styles.button, styles.cancelButton]}
                     >
-                      <Text style={styles.cancelButtonText}>Annuleren</Text>
+                      <Text style={styles.cancelButtonText}>Close</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={handleAddVehicle}
                       style={[styles.button, styles.addButton]}
                     >
-                      <Text style={styles.addButtonText}>Toevoegen</Text>
+                      <Text style={styles.addButtonText}>Add Vehicle</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -327,25 +411,52 @@ export default function HomeScreen({ navigation }) {
                 <>
                   <FlatList
                     horizontal
-                    data={vehicles}
-                    keyExtractor={(item) => item._id || item.id}
-                    contentContainerStyle={{ gap: 10 }}
-                    renderItem={({ item }) => (
-                      <VehicleCard
-                        vehicle={item}
-                        selected={selectedVehicle?.plate === item.plate}
-                        onPress={() => handleVehicleSelect(item)}
-                      />
-                    )}
+                    data={vehiclesWithAddButton}
+                    keyExtractor={(item) =>
+                      item._id ||
+                      item.id ||
+                      (item.isAddButton
+                        ? "add-button"
+                        : Math.random().toString())
+                    }
+                    contentContainerStyle={{ gap: 10, paddingHorizontal: 10 }}
+                    showsHorizontalScrollIndicator={true}
+                    renderItem={({ item }) => {
+                      if (item.isAddButton) {
+                        return (
+                          <TouchableOpacity
+                            style={styles.addVehicleButton}
+                            onPress={() => setAddingVehicle(true)}
+                          >
+                            <Icon name="plus" size={30} color="#001D3D" />
+                          </TouchableOpacity>
+                        );
+                      }
+                      return (
+                        <VehicleCard
+                          vehicle={item}
+                          selected={selectedVehicle?.plate === item.plate}
+                          onPress={() => handleVehicleSelect(item)}
+                        />
+                      );
+                    }}
                   />
-                  <TouchableOpacity
-                    style={styles.addVehicleButton}
-                    onPress={() => setAddingVehicle(true)}
-                  >
-                    <Icon name="plus" size={20} color="#001D3D" />
-                  </TouchableOpacity>
                 </>
               )}
+              {/* Ads banner for non-premium */}
+              {/* {!isPremium && (
+                <View style={styles.adBanner}>
+                  <Text style={styles.adText}>
+                    ✨ Upgrade to Premium for an ad-free experience!
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.adButton}
+                    onPress={() => navigation.navigate("Premium")}
+                  >
+                    <Text style={styles.adButtonText}>Go Premium</Text>
+                  </TouchableOpacity>
+                </View>
+              )} */}
 
               {!addingVehicle && (
                 <TouchableOpacity
@@ -419,13 +530,19 @@ export default function HomeScreen({ navigation }) {
                   <Text>{selectedEvent.description}</Text>
                   <Text>Location: {selectedEvent.location}</Text>
                   <Text>Date: {selectedEvent.date}</Text>
-
                   <TouchableOpacity
                     onPress={() => {
-                      navigation.navigate("EventDetailScreen", {
-                        event: selectedEvent,
-                      });
-                      setSelectedEvent(null);
+                      const eventToSend = selectedEvent; // bewaar huidige event
+                      setSelectedEvent(null); // sluit modal
+                      if (isPremium) {
+                        navigation.navigate("EventDetailScreen", {
+                          event: eventToSend,
+                        });
+                      } else {
+                        navigation.navigate("ParkingDetail", {
+                          parking: eventToSend,
+                        });
+                      }
                     }}
                     style={styles.goToParkingButton}
                   >
@@ -461,104 +578,6 @@ export default function HomeScreen({ navigation }) {
           style={styles.vehicleIcon}
         />
       </TouchableOpacity>
-
-      {/* Vehicle modal */}
-      {vehiclesModalVisible && (
-        <Modal visible={true} animationType="fade" transparent={true}>
-          <View style={styles.filterContainer}>
-            <View
-              style={[styles.filterBox, { height: addingVehicle ? 360 : 250 }]}
-            >
-              <Text style={styles.filterTitle}>
-                {addingVehicle ? "Add new vehicle" : "Select your vehicle"}
-              </Text>
-
-              {addingVehicle ? (
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    placeholder="Bijv. Mercedes"
-                    placeholderTextColor="#999"
-                    value={newBrand}
-                    onChangeText={setNewBrand}
-                    style={styles.input}
-                  />
-                  <TextInput
-                    placeholder="Bijv. A-Klasse"
-                    placeholderTextColor="#999"
-                    value={newModel}
-                    onChangeText={setNewModel}
-                    style={styles.input}
-                  />
-                  <TextInput
-                    placeholder="Bijv. 2021"
-                    placeholderTextColor="#999"
-                    value={newYear}
-                    onChangeText={setNewYear}
-                    keyboardType="numeric"
-                    style={styles.input}
-                  />
-                  <TextInput
-                    placeholder="Bijv. 1-ABC-123"
-                    placeholderTextColor="#999"
-                    value={newPlate}
-                    onChangeText={setNewPlate}
-                    style={styles.input}
-                  />
-
-                  <View style={styles.buttonRow}>
-                    <TouchableOpacity
-                      onPress={() => setAddingVehicle(false)}
-                      style={[styles.button, styles.cancelButton]}
-                    >
-                      <Text style={styles.cancelButtonText}>Annuleren</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleAddVehicle}
-                      style={[styles.button, styles.addButton]}
-                    >
-                      <Text style={styles.addButtonText}>Toevoegen</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <FlatList
-                    horizontal
-                    data={vehicles}
-                    keyExtractor={(item, index) =>
-                      (item._id || item.id || index).toString()
-                    }
-                    contentContainerStyle={{ gap: 10 }}
-                    renderItem={({ item }) => (
-                      <VehicleCard
-                        vehicle={item}
-                        selected={selectedVehicle?.id === item.id}
-                        onPress={() => handleVehicleSelect(item)}
-                      />
-                    )}
-                  />
-                  <TouchableOpacity
-                    style={styles.addVehicleButton}
-                    onPress={() => setAddingVehicle(true)}
-                  >
-                    <Icon name="plus" size={20} color="#001D3D" />
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {!addingVehicle && (
-                <TouchableOpacity
-                  onPress={() => setVehiclesModalVisible(false)}
-                  style={styles.closeModalButton}
-                >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </Modal>
-      )}
     </View>
   );
 }
@@ -625,10 +644,11 @@ const styles = StyleSheet.create({
   },
   eventModalTitle: { fontSize: 20, fontWeight: "bold" },
   eventImage: {
-    width: "100%",
-    height: 180,
+    width: "90%",
+    height: 200,
     borderRadius: 10,
     resizeMode: "cover",
+    top: 10,
   },
   goToParkingButton: {
     marginTop: 10,
@@ -640,15 +660,15 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "center", alignItems: "center" },
   selectedVehicleContainer: {
     position: "absolute",
-    bottom: 150,
+    bottom: 170,
     left: 20,
     backgroundColor: "white",
     padding: 10,
     borderRadius: 5,
   },
   vehicleCard: {
-    width: 160,
-    height: 120,
+    width: 120,
+    height: 150,
     borderRadius: 15,
     padding: 12,
     justifyContent: "center",
@@ -662,14 +682,12 @@ const styles = StyleSheet.create({
   vehicleCardPlate: { fontSize: 13, color: "#888" },
   checkmark: { position: "absolute", bottom: 10, right: 10 },
   addVehicleButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
+    width: 120, // gelijk aan voertuigkaart breedte
+    height: 150, // gelijk aan voertuigkaart hoogte
+    borderRadius: 15,
     backgroundColor: "#E6E6E6",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    marginLeft: 10,
   },
   locationDotOuter: {
     width: 20,
@@ -760,7 +778,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   vehicleButton: {
-    position: "absolute", // DIT IS BELANGRIJK!
+    position: "absolute",
     bottom: 40,
     left: 20,
     flexDirection: "row",
@@ -773,7 +791,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 5,
-    zIndex: 99, // Zorgt dat hij bovenaan blijft
+    zIndex: 99,
   },
 
   vehicleIcon: {
@@ -786,5 +804,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#001D3D",
     fontWeight: "600",
+  },
+  adBanner: {
+    position: "absolute",
+    bottom: 110,
+    left: 20,
+    right: 20,
+    backgroundColor: "#FFE5B4",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 100,
+  },
+  adText: {
+    color: "#333",
+    fontSize: 14,
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  adButton: {
+    backgroundColor: "#EB6534",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginLeft: 10,
+  },
+  adButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });

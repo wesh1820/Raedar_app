@@ -97,12 +97,12 @@ const TicketDetailScreen = ({ route }) => {
   };
 
   const formatCountdown = (ms) => {
-    if (ms <= 0) return "Verlopen";
+    if (ms <= 0) return "Expired";
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${hours}u ${minutes}m ${seconds}s`;
+    return `${hours}h ${minutes}m ${seconds}s`;
   };
 
   const openGoogleMapsRoute = () => {
@@ -119,22 +119,22 @@ const TicketDetailScreen = ({ route }) => {
         <Text style={styles.title}>{ticket.type}</Text>
 
         <View style={styles.sectionBox}>
-          <Text style={styles.label}>Prijs:</Text>
+          <Text style={styles.label}>Price:</Text>
           <Text style={styles.value}>€{ticket.price}</Text>
         </View>
 
         <View style={styles.sectionBox}>
-          <Text style={styles.label}>Beschikbaarheid:</Text>
+          <Text style={styles.label}>Availability:</Text>
           <Text style={styles.value}>{ticket.availability}</Text>
         </View>
 
         <View style={styles.sectionBox}>
-          <Text style={styles.label}>Duur:</Text>
-          <Text style={styles.value}>{ticket.duration} minuten</Text>
+          <Text style={styles.label}>Duration:</Text>
+          <Text style={styles.value}>{ticket.duration} minutes</Text>
         </View>
 
         <View style={styles.sectionBox}>
-          <Text style={styles.label}>Aangemaakt op:</Text>
+          <Text style={styles.label}>Created at:</Text>
           <Text style={styles.value}>
             {new Date(ticket.createdAt).toLocaleString()}
           </Text>
@@ -144,11 +144,11 @@ const TicketDetailScreen = ({ route }) => {
           style={styles.routeButton}
           onPress={openGoogleMapsRoute}
         >
-          <Text style={styles.routeButtonText}>Route naar parking</Text>
+          <Text style={styles.routeButtonText}>Route to parking</Text>
         </TouchableOpacity>
 
         <Text style={styles.timer}>
-          Resterende tijd: {formatCountdown(remainingTime)}
+          Remaining time: {formatCountdown(remainingTime)}
         </Text>
 
         <TouchableOpacity
@@ -160,7 +160,7 @@ const TicketDetailScreen = ({ route }) => {
         </TouchableOpacity>
 
         {!isRunning && remainingTime === 0 && (
-          <Text style={styles.expired}>Timer verlopen</Text>
+          <Text style={styles.expired}>Timer expired</Text>
         )}
       </View>
     </Animated.View>
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     color: "#001D3D",
   },
   routeButton: {
-    backgroundColor: "#EB6534",
+    backgroundColor: "#001D3D",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,

@@ -1,88 +1,108 @@
 import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LogBox } from "react-native";
 
-// Screens
-import HomeScreen from "./screens/HomeScreen";
-import EventScreen from "./screens/EventScreen";
-import TicketScreen from "./screens/TicketScreen";
-import MoreScreen from "./screens/MoreScreen";
+import IntroScreen from "./screens/IntroScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignUpScreen from "./screens/SignUpScreen";
 import WalkthroughScreen from "./screens/WalkthroughScreen";
+import HomeScreen from "./screens/HomeScreen";
+import { EventScreen } from "./screens/EventScreen";
+import TicketScreen from "./screens/TicketScreen";
+import MoreScreen from "./screens/MoreScreen";
 import EventDetailScreen from "./screens/EventDetailScreen";
 import ParkingDetailScreen from "./screens/ParkingDetailScreen";
 import TicketDetailScreen from "./screens/TicketDetailScreen";
 import CategoryEventScreen from "./screens/CategoryEventScreen";
 import AccountScreen from "./screens/AccountScreen";
+import OrderScreen from "./screens/OrderScreen";
 import PaymentScreen from "./screens/PaymentScreen";
-
-// Icons
+import SupportScreen from "./screens/SupportScreen";
+import PremiumScreen from "./screens/PremiumScreen";
+import AccessibilitySettingsScreen from "./screens/AccessibilitySettingsScreen";
+import CardDetailScreen from "./screens/CardDetailScreen";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import {
   MaterialIcons,
   Ionicons,
   FontAwesome,
 } from "react-native-vector-icons";
-import PremiumScreen from "./screens/PremiumScreen";
-
-LogBox.ignoreLogs(["Warning: ..."]);
+import VehiclesScreen from "./screens/VehicleScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
+  const [showIntro, setShowIntro] = useState(true); // Show intro on cold app start
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      const token = await AsyncStorage.getItem("userToken");
-      if (token) {
-        setIsLoggedIn(true);
-        const userData = await AsyncStorage.getItem("userData");
-        if (userData) {
-          setUser(JSON.parse(userData));
+    async function initialize() {
+      try {
+        // No AsyncStorage flag for intro; always show intro on app cold start
+
+        const token = await AsyncStorage.getItem("userToken");
+        setIsLoggedIn(!!token);
+
+        if (token) {
+          const userData = await AsyncStorage.getItem("userData");
+          if (userData) setUser(JSON.parse(userData));
         }
-      } else {
-        setIsLoggedIn(false);
-        setUser(null);
+      } catch (e) {
+        console.warn("Initialization error", e);
       }
-      setLoading(false); // klaar met checken
-    };
-    checkLoginStatus();
+      setLoading(false);
+    }
+    initialize();
   }, []);
 
-  if (loading) {
-    // Optioneel: hier kan je een splashscreen tonen of gewoon null returnen
-    return null;
-  }
+  if (loading) return null;
+
+  // IMPORTANT: No navigation.navigate('AuthStack') or navigation.replace('AuthStack')!
 
   return (
     <NavigationContainer>
-      {isLoggedIn ? (
-        <MainStack setIsLoggedIn={setIsLoggedIn} user={user} />
-      ) : (
-        <AuthStack setIsLoggedIn={setIsLoggedIn} />
-      )}
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {showIntro ? (
+          <Stack.Screen name="Intro">
+            {(props) => (
+              <IntroScreen
+                {...props}
+                onFinish={() => setShowIntro(false)}
+                showIntro={showIntro}
+                isLoggedIn={isLoggedIn}
+              />
+            )}
+          </Stack.Screen>
+        ) : isLoggedIn ? (
+          <Stack.Screen name="MainStack">
+            {(props) => (
+              <MainStack {...props} setIsLoggedIn={setIsLoggedIn} user={user} />
+            )}
+          </Stack.Screen>
+        ) : (
+          <Stack.Screen name="AuthStack">
+            {(props) => <AuthStack {...props} setIsLoggedIn={setIsLoggedIn} />}
+          </Stack.Screen>
+        )}
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
-// Auth stack for login/signup
 function AuthStack({ setIsLoggedIn }) {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Login" options={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login">
         {(props) => <LoginScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
-      <Stack.Screen name="SignUp" options={{ headerShown: false }}>
+      <Stack.Screen name="SignUp">
         {(props) => <SignUpScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Stack.Screen>
-      <Stack.Screen name="Walkthrough" options={{ headerShown: false }}>
+      <Stack.Screen name="Walkthrough">
         {(props) => (
           <WalkthroughScreen {...props} setIsLoggedIn={setIsLoggedIn} />
         )}
@@ -91,16 +111,14 @@ function AuthStack({ setIsLoggedIn }) {
   );
 }
 
-// Main stack after login
 function MainStack({ setIsLoggedIn, user }) {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Main" options={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs">
         {(props) => (
           <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} user={user} />
         )}
       </Stack.Screen>
-
       <Stack.Screen
         name="EventDetailScreen"
         component={EventDetailScreen}
@@ -144,20 +162,44 @@ function MainStack({ setIsLoggedIn, user }) {
         options={{ headerShown: true, title: "Account" }}
       />
       <Stack.Screen
-        name="PaymentScreen"
-        component={PaymentScreen}
-        options={{ headerShown: true, title: "Payment" }}
+        name="OrderScreen"
+        component={OrderScreen}
+        options={{ headerShown: true, title: "Order" }}
       />
       <Stack.Screen
         name="Premium"
         component={PremiumScreen}
         options={{ headerShown: true, title: "Premium" }}
       />
+      <Stack.Screen
+        name="Vehicle"
+        component={VehiclesScreen}
+        options={{ headerShown: true, title: "Vehicle" }}
+      />
+      <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{ headerShown: true, title: "Payment" }}
+      />
+      <Stack.Screen
+        name="CardDetail"
+        component={CardDetailScreen}
+        options={{ headerShown: true, title: "CardDetail" }}
+      />
+      <Stack.Screen
+        name="AccessibilitySettings"
+        component={AccessibilitySettingsScreen}
+        options={{ headerShown: true, title: "AccessibilitySettings" }}
+      />
+      <Stack.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{ headerShown: true, title: "Support" }}
+      />
     </Stack.Navigator>
   );
 }
 
-// Bottom tab navigation
 function MainTabs({ setIsLoggedIn, user }) {
   return (
     <Tab.Navigator

@@ -27,7 +27,7 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
         body: JSON.stringify({ phoneNumber, password, action: "login" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login mislukt");
+      if (!res.ok) throw new Error(data.error || "Login failed");
 
       await AsyncStorage.setItem("userToken", data.token);
       await AsyncStorage.setItem("userId", data.user._id);
@@ -98,7 +98,7 @@ export default function LoginScreen({ navigation, setIsLoggedIn }) {
         </TouchableOpacity>
 
         <Text style={styles.signupPrompt}>
-          No account yet?{" "}
+          Don’t have an account?{" "}
           <Text
             style={styles.signupLink}
             onPress={() => navigation.navigate("SignUp")}
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 300,
-    height: 60,
+    height: 300,
   },
   bottomContainer: {
     flex: 2,
